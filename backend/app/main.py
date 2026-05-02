@@ -9,6 +9,8 @@ import app.models.analytics  # noqa: F401
 import app.models.business  # noqa: F401
 import app.models.chat  # noqa: F401
 import app.models.content  # noqa: F401
+import app.models.documents  # noqa: F401
+import app.models.email  # noqa: F401
 import app.models.teaching  # noqa: F401
 import app.models.writing  # noqa: F401
 from app.config import settings
@@ -23,6 +25,8 @@ from app.routers import (
     chat,
     content,
     dashboard,
+    documents,
+    email_mgmt,
     teaching,
     writing,
 )
@@ -83,6 +87,8 @@ app.include_router(business.router)
 app.include_router(analytics.router)
 app.include_router(chat.router)
 app.include_router(browser.router)
+app.include_router(documents.router)
+app.include_router(email_mgmt.router)
 
 
 @app.get("/api/health")
