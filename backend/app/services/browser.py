@@ -2,6 +2,7 @@ import asyncio
 import base64
 import logging
 from dataclasses import dataclass, field
+from urllib.parse import quote_plus
 
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
@@ -144,7 +145,7 @@ class BrowserSession:
                 )
 
     async def search(self, query: str) -> BrowserResult:
-        url = f"https://www.google.com/search?q={query}"
+        url = f"https://www.google.com/search?q={quote_plus(query)}"
         result = await self.navigate(url)
         if result.success:
             result.action = "search"

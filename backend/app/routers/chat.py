@@ -159,13 +159,13 @@ async def _call_hf(messages: list[dict[str, str]]) -> str | None:
     if not settings.hf_token:
         return None
     try:
-        from huggingface_hub import InferenceClient
+        from huggingface_hub import AsyncInferenceClient
 
-        client = InferenceClient(
+        client = AsyncInferenceClient(
             provider="hf-inference",
             token=settings.hf_token,
         )
-        response: Any = client.chat.completions.create(
+        response: Any = await client.chat.completions.create(
             model="HuggingFaceH4/zephyr-7b-beta",
             messages=messages,
             max_tokens=1024,

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -19,7 +19,7 @@ async def dashboard_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
 
     projects_result = await db.execute(select(WritingProject))
