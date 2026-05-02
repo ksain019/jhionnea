@@ -5,8 +5,10 @@ import { getToken } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { WatchlistItem, TradeLogEntry } from "@/lib/api";
 import Header from "@/components/Header";
+import { useSidebar } from "../layout";
 
 export default function AnalyticsPage() {
+  const { toggleSidebar } = useSidebar();
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [trades, setTrades] = useState<TradeLogEntry[]>([]);
   const [activeTab, setActiveTab] = useState<"watchlist" | "trades" | "sports">("watchlist");
@@ -20,8 +22,8 @@ export default function AnalyticsPage() {
 
   return (
     <>
-      <Header title="Investing & Sports Analytics" />
-      <main className="flex-1 overflow-y-auto p-8 space-y-8">
+      <Header title="Investing & Sports Analytics" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-card-bg rounded-xl border border-card-border p-6">
             <p className="text-sm text-muted mb-1">Watchlist Items</p>

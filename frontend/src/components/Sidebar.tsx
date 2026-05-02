@@ -15,49 +15,85 @@ const NAV_ITEMS = [
   { href: "/dashboard/chat", label: "Chat", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
 ];
 
-export default function Sidebar({ userName, userRole }: { userName: string; userRole: string }) {
+interface SidebarProps {
+  userName: string;
+  userRole: string;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ userName, userRole, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-sidebar-bg text-sidebar-text flex flex-col min-h-screen">
-      <div className="p-6 border-b border-indigo-800">
-        <h1 className="text-2xl font-bold tracking-tight">Jhionnea</h1>
-        <p className="text-sm text-indigo-300 mt-1">AI Employee System</p>
-      </div>
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      <nav className="flex-1 py-4 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
-                isActive
-                  ? "bg-indigo-700/50 text-white border-r-2 border-indigo-400"
-                  : "text-indigo-200 hover:bg-indigo-800/40 hover:text-white"
-              }`}
-            >
-              <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-              </svg>
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-indigo-800">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
-            {userName.charAt(0).toUpperCase()}
-          </div>
+      <aside
+        className={`
+          fixed top-0 left-0 z-50 w-64 bg-sidebar-bg text-sidebar-text flex flex-col h-screen
+          transform transition-transform duration-200 ease-in-out
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          md:translate-x-0 md:static md:z-auto
+        `}
+      >
+        <div className="p-6 border-b border-indigo-800 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-white">{userName}</p>
-            <p className="text-xs text-indigo-300 capitalize">{userRole}</p>
+            <h1 className="text-2xl font-bold tracking-tight">Jhionnea</h1>
+            <p className="text-sm text-indigo-300 mt-1">AI Employee System</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="md:hidden text-indigo-300 hover:text-white p-1"
+            aria-label="Close sidebar"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <nav className="flex-1 py-4 overflow-y-auto">
+          {NAV_ITEMS.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
+                  isActive
+                    ? "bg-indigo-700/50 text-white border-r-2 border-indigo-400"
+                    : "text-indigo-200 hover:bg-indigo-800/40 hover:text-white"
+                }`}
+              >
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                </svg>
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 border-t border-indigo-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold text-sm">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">{userName}</p>
+              <p className="text-xs text-indigo-300 capitalize">{userRole}</p>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

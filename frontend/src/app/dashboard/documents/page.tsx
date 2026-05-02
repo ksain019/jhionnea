@@ -5,8 +5,10 @@ import { getToken } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { DocumentProject } from "@/lib/api";
 import Header from "@/components/Header";
+import { useSidebar } from "../layout";
 
 export default function DocumentsPage() {
+  const { toggleSidebar } = useSidebar();
   const [documents, setDocuments] = useState<DocumentProject[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedDoc, setExpandedDoc] = useState<DocumentProject | null>(null);
@@ -59,8 +61,8 @@ export default function DocumentsPage() {
 
   return (
     <>
-      <Header title="Document Formatting" />
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <Header title="Document Formatting" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-card-bg rounded-xl border border-card-border p-4">

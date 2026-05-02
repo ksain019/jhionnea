@@ -6,8 +6,10 @@ import { api } from "@/lib/api";
 import type { DashboardSummary } from "@/lib/api";
 import Header from "@/components/Header";
 import StatCard from "@/components/StatCard";
+import { useSidebar } from "./layout";
 
 export default function DashboardPage() {
+  const { toggleSidebar } = useSidebar();
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState("");
 
@@ -19,8 +21,8 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Header title="Dashboard" />
-      <main className="flex-1 overflow-y-auto p-8">
+      <Header title="Dashboard" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {error && (
           <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm mb-6 border border-red-200">
             {error}

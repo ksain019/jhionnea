@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+import io
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -121,6 +123,61 @@ async def create_assignment(
     await db.commit()
     await db.refresh(assignment)
     return assignment
+
+
+@router.post("/assignments/upload", response_model=AssignmentResponse, status_code=201)
+async def upload_assignment(
+    file: UploadFile,
+    title: str = "",
+    student_id: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    filename = file.filename.lower()
+    content_bytes = await file.read()
+
+    if filename.endswith(".pdf"):
+        text = _extract_pdf_text(content_bytes)
+    elif filename.endswith(".docx"):
+        text = _extract_docx_text(content_bytes)
+    elif filename.endswith(".txt"):
+        text = content_bytes.decode("utf-8", errors="replace")
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Please upload PDF, DOCX, or TXT.",
+        )
+
+    assignment_title = title or file.filename.rsplit(".", 1)[0]
+    assignment = Assignment(
+        title=assignment_title,
+        content=text,
+        student_id=student_id,
+        created_by=current_user.id,
+        file_name=file.filename,
+    )
+    db.add(assignment)
+    await db.commit()
+    await db.refresh(assignment)
+    return assignment
+
+
+def _extract_pdf_text(data: bytes) -> str:
+    from pypdf import PdfReader
+
+    reader = PdfReader(io.BytesIO(data))
+    pages = [page.extract_text() or "" for page in reader.pages]
+    return "\n\n".join(pages).strip()
+
+
+def _extract_docx_text(data: bytes) -> str:
+    import docx
+
+    doc = docx.Document(io.BytesIO(data))
+    return "\n".join(p.text for p in doc.paragraphs).strip()
 
 
 @router.put("/assignments/{assignment_id}/grade", response_model=AssignmentResponse)

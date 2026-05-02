@@ -40,6 +40,7 @@ class AssignmentResponse(BaseModel):
     student_id: int | None = None
     title: str
     content: str | None = None
+    file_name: str | None = None
     feedback: str | None
     grade: str | None
     score: float | None = None

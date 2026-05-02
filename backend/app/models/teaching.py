@@ -42,6 +42,7 @@ class Assignment(Base):
     )
     title: Mapped[str] = mapped_column(String(255))
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    file_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
     grade: Mapped[str | None] = mapped_column(String(10), nullable=True)

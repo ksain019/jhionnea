@@ -6,11 +6,13 @@ import { api } from "@/lib/api";
 import type { WritingProject, WritingStats } from "@/lib/api";
 import Header from "@/components/Header";
 import StatCard from "@/components/StatCard";
+import { useSidebar } from "../layout";
 
 const PROJECT_TYPES = ["novel", "workbook", "episode", "script"];
 const PLATFORMS = ["KDP", "Pocket FM", "YouTube", "Medium"];
 
 export default function WritingPage() {
+  const { toggleSidebar } = useSidebar();
   const [projects, setProjects] = useState<WritingProject[]>([]);
   const [stats, setStats] = useState<WritingStats | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -51,8 +53,8 @@ export default function WritingPage() {
 
   return (
     <>
-      <Header title="Writing & Publishing" />
-      <main className="flex-1 overflow-y-auto p-8">
+      <Header title="Writing & Publishing" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8">
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <StatCard label="Total Projects" value={stats.total_projects} />

@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, getUser } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
+
+interface SidebarContextType {
+  toggleSidebar: () => void;
+}
+
+const SidebarContext = createContext<SidebarContextType>({ toggleSidebar: () => {} });
+
+export function useSidebar() {
+  return useContext(SidebarContext);
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -23,6 +34,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setReady(true);
   }, [router]);
 
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
   if (!ready) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -32,11 +51,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar userName={userName} userRole={userRole} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {children}
+    <SidebarContext.Provider value={{ toggleSidebar }}>
+      <div className="flex min-h-screen">
+        <Sidebar
+          userName={userName}
+          userRole={userRole}
+          isOpen={sidebarOpen}
+          onClose={closeSidebar}
+        />
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {children}
+        </div>
       </div>
-    </div>
+    </SidebarContext.Provider>
   );
 }

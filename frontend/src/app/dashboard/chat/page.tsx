@@ -5,6 +5,7 @@ import { getToken, getUser } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { ChatMessage } from "@/lib/api";
 import Header from "@/components/Header";
+import { useSidebar } from "../layout";
 
 interface DisplayMessage {
   chatMsg: ChatMessage;
@@ -13,6 +14,7 @@ interface DisplayMessage {
 }
 
 export default function ChatPage() {
+  const { toggleSidebar } = useSidebar();
   const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -66,7 +68,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <Header title="Chat with Jhionnea" />
+      <Header title="Chat with Jhionnea" onMenuToggle={toggleSidebar} />
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {displayMessages.length === 0 && (

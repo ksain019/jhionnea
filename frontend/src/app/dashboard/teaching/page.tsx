@@ -5,10 +5,12 @@ import { getToken } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { Curriculum, Assignment, Student, AttendanceRecord, DemoLesson, StudentAnalysis } from "@/lib/api";
 import Header from "@/components/Header";
+import { useSidebar } from "../layout";
 
 type Tab = "overview" | "students" | "assignments" | "attendance" | "demo-lessons";
 
 export default function TeachingPage() {
+  const { toggleSidebar } = useSidebar();
   const [tab, setTab] = useState<Tab>("overview");
   const [curricula, setCurricula] = useState<Curriculum[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -55,6 +57,11 @@ export default function TeachingPage() {
   const [demoSubject, setDemoSubject] = useState("");
   const [demoGrade, setDemoGrade] = useState("");
   const [demoDuration, setDemoDuration] = useState("45");
+
+  // File upload
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   // Expanded demo lesson
   const [expandedLesson, setExpandedLesson] = useState<DemoLesson | null>(null);
@@ -167,10 +174,10 @@ export default function TeachingPage() {
 
   return (
     <>
-      <Header title="Teaching & Curriculum" />
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <Header title="Teaching & Curriculum" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {/* Tab Navigation */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto max-w-full">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -327,14 +334,94 @@ export default function TeachingPage() {
             {showAssignmentForm && (
               <form onSubmit={handleCreateAssignment} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" value={asnTitle} onChange={(e) => setAsnTitle(e.target.value)} placeholder="Assignment title" className={inputCls} required />
+                  <input type="text" value={asnTitle} onChange={(e) => setAsnTitle(e.target.value)} placeholder="Assignment title" className={inputCls} required={!uploadFile} />
                   <select value={asnStudentId} onChange={(e) => setAsnStudentId(e.target.value)} className={inputCls}>
                     <option value="">Select student (optional)</option>
                     {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
-                <textarea value={asnContent} onChange={(e) => setAsnContent(e.target.value)} placeholder="Assignment content (optional)" className={`${inputCls} w-full`} rows={3} />
-                <button type="submit" className={btnPrimary}>Create Assignment</button>
+
+                {/* File Upload Zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) setUploadFile(file);
+                  }}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+                    dragOver ? "border-primary bg-indigo-50" : uploadFile ? "border-green-400 bg-green-50" : "border-gray-300"
+                  }`}
+                >
+                  {uploadFile ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <span className="text-sm text-green-700 font-medium">{uploadFile.name}</span>
+                      <button type="button" onClick={() => setUploadFile(null)} className="text-xs text-red-500 hover:text-red-700 ml-2">
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="cursor-pointer">
+                      <div className="space-y-1">
+                        <svg className="w-8 h-8 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        <p className="text-sm text-gray-600">Drop a file here or <span className="text-primary font-medium">browse</span></p>
+                        <p className="text-xs text-muted">PDF, DOCX, or TXT</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".pdf,.docx,.txt"
+                        onChange={(e) => { if (e.target.files?.[0]) setUploadFile(e.target.files[0]); }}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {!uploadFile && (
+                  <textarea value={asnContent} onChange={(e) => setAsnContent(e.target.value)} placeholder="Or type/paste assignment content here..." className={`${inputCls} w-full`} rows={3} />
+                )}
+
+                <div className="flex gap-2">
+                  {uploadFile ? (
+                    <button
+                      type="button"
+                      disabled={uploading}
+                      onClick={async () => {
+                        const token = getToken();
+                        if (!token || !uploadFile) return;
+                        setUploading(true);
+                        try {
+                          const a = await api.uploadAssignment(
+                            token,
+                            uploadFile,
+                            asnTitle || undefined,
+                            asnStudentId ? Number(asnStudentId) : undefined,
+                          );
+                          setAssignments([a, ...assignments]);
+                          setUploadFile(null);
+                          setAsnTitle(""); setAsnStudentId("");
+                          setShowAssignmentForm(false);
+                        } catch (err) {
+                          console.error("Upload failed:", err);
+                        } finally {
+                          setUploading(false);
+                        }
+                      }}
+                      className={btnPrimary}
+                    >
+                      {uploading ? "Uploading..." : "Upload & Create"}
+                    </button>
+                  ) : (
+                    <button type="submit" className={btnPrimary}>Create Assignment</button>
+                  )}
+                </div>
               </form>
             )}
 
@@ -363,6 +450,14 @@ export default function TeachingPage() {
                       <p className="font-medium text-foreground">{a.title}</p>
                       <p className="text-xs text-muted">
                         {a.student_id ? `Student #${a.student_id}` : "Unassigned"}
+                        {a.file_name && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-indigo-600">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                            </svg>
+                            {a.file_name}
+                          </span>
+                        )}
                         {a.grade && <span className="ml-2 text-green-600 font-medium">Grade: {a.grade}</span>}
                         {a.score != null && <span className="ml-2 text-blue-600">({a.score}%)</span>}
                       </p>

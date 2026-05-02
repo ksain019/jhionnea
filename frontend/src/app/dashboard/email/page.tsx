@@ -5,8 +5,10 @@ import { getToken } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { EmailRule, EmailLog } from "@/lib/api";
 import Header from "@/components/Header";
+import { useSidebar } from "../layout";
 
 type Tab = "rules" | "analyze" | "logs";
+
 
 interface AnalysisResult {
   from: string;
@@ -16,6 +18,7 @@ interface AnalysisResult {
 }
 
 export default function EmailPage() {
+  const { toggleSidebar } = useSidebar();
   const [tab, setTab] = useState<Tab>("rules");
   const [rules, setRules] = useState<EmailRule[]>([]);
   const [logs, setLogs] = useState<EmailLog[]>([]);
@@ -108,10 +111,10 @@ export default function EmailPage() {
 
   return (
     <>
-      <Header title="Email Management" />
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <Header title="Email Management" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {/* Tab Navigation */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto max-w-full">
           {tabs.map((t) => (
             <button
               key={t.key}

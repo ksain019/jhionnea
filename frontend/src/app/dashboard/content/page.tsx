@@ -5,10 +5,12 @@ import { getToken } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { CalendarEvent, ContentDraft, YouTubeProject, PodcastEpisode } from "@/lib/api";
 import Header from "@/components/Header";
+import { useSidebar } from "../layout";
 
 type Tab = "calendar" | "youtube" | "podcast" | "drafts";
 
 export default function ContentPage() {
+  const { toggleSidebar } = useSidebar();
   const [tab, setTab] = useState<Tab>("calendar");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [drafts, setDrafts] = useState<ContentDraft[]>([]);
@@ -146,10 +148,10 @@ export default function ContentPage() {
 
   return (
     <>
-      <Header title="Content & Media" />
-      <main className="flex-1 overflow-y-auto p-8 space-y-6">
+      <Header title="Content & Media" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
         {/* Tab Navigation */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto max-w-full">
           {tabs.map((t) => (
             <button
               key={t.key}

@@ -6,8 +6,10 @@ import { api } from "@/lib/api";
 import type { IncomeRecord, MoneySnapshot } from "@/lib/api";
 import Header from "@/components/Header";
 import StatCard from "@/components/StatCard";
+import { useSidebar } from "../layout";
 
 export default function BusinessPage() {
+  const { toggleSidebar } = useSidebar();
   const [income, setIncome] = useState<IncomeRecord[]>([]);
   const [snapshot, setSnapshot] = useState<MoneySnapshot | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -49,8 +51,8 @@ export default function BusinessPage() {
 
   return (
     <>
-      <Header title="Business & Money" />
-      <main className="flex-1 overflow-y-auto p-8 space-y-8">
+      <Header title="Business & Money" onMenuToggle={toggleSidebar} />
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
         {snapshot && (
           <>
             <h3 className="text-lg font-semibold text-foreground">

@@ -95,6 +95,7 @@ export interface Assignment {
   student_id: number | null;
   title: string;
   content: string | null;
+  file_name: string | null;
   feedback: string | null;
   grade: string | null;
   score: number | null;
@@ -387,6 +388,24 @@ export const api = {
       body: JSON.stringify(data),
     });
   },
+  uploadAssignment(token: string, file: File, title?: string, studentId?: number) {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (title) formData.append("title", title);
+    if (studentId) formData.append("student_id", String(studentId));
+    return fetch(`${API_BASE}/api/teaching/assignments/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(body.detail || `API error ${res.status}`);
+      }
+      return res.json() as Promise<Assignment>;
+    });
+  },
+
   gradeAssignment(token: string, assignmentId: number, data: { grade: string; score?: number; feedback: string }) {
     return apiFetch<Assignment>(`/api/teaching/assignments/${assignmentId}/grade`, {
       method: "PUT",
