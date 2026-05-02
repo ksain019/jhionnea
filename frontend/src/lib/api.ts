@@ -172,6 +172,27 @@ export interface ChatMessage {
 export interface ChatReply {
   user_message: ChatMessage;
   assistant_message: ChatMessage;
+  browser_screenshot?: string | null;
+  browser_url?: string | null;
+}
+
+export interface BrowserActionRequest {
+  action: string;
+  url?: string;
+  selector?: string;
+  text?: string;
+  query?: string;
+  direction?: string;
+}
+
+export interface BrowserActionResponse {
+  success: boolean;
+  action: string;
+  url: string;
+  title: string;
+  screenshot_b64: string;
+  text_content: string;
+  error: string;
 }
 
 export const api = {
@@ -271,6 +292,15 @@ export const api = {
       method: "POST",
       token,
       body: JSON.stringify({ content }),
+    });
+  },
+
+  // Browser
+  browserAction(token: string, data: BrowserActionRequest) {
+    return apiFetch<BrowserActionResponse>("/api/browser/action", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
     });
   },
 };

@@ -20,3 +20,5 @@ class ChatMessageResponse(BaseModel):
 class ChatReply(BaseModel):
     user_message: ChatMessageResponse
     assistant_message: ChatMessageResponse
+    browser_screenshot: str | None = None
+    browser_url: str | None = None

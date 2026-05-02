@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -11,6 +12,7 @@ from app.database import get_db
 from app.models.chat import ChatMessage
 from app.models.user import User
 from app.schemas.chat import ChatMessageCreate, ChatMessageResponse, ChatReply
+from app.services.browser import browser_session
 from app.utils.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,9 @@ SYSTEM_PROMPT = (
     "Money Snapshots, Credit & Cashflow Summaries.\n"
     "5. Investing & Sports Analytics — watchlists, trade logs, "
     "stock summaries, sports analytics, odds breakdowns.\n\n"
+    "You also have browser access. When the user asks you to "
+    "browse the web, search for something, or visit a website, "
+    "you can do it and report back what you found.\n\n"
     "Guidelines:\n"
     "- Produce actual drafts, not just outlines.\n"
     "- Be specific and thorough.\n"
@@ -41,6 +46,78 @@ SYSTEM_PROMPT = (
     "- Be proactive — suggest next steps.\n"
     "- Keep a professional yet friendly tone."
 )
+
+_BROWSE_KEYWORDS = [
+    "go to", "open", "visit", "browse", "navigate to",
+    "search for", "search google", "look up", "google",
+    "find online", "check the website", "check website",
+    "look at the site", "pull up",
+]
+
+_URL_PATTERN = re.compile(
+    r"https?://[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(com|org|net|io|ai|dev)\b"
+)
+
+
+def _detect_browser_intent(message: str) -> dict[str, str] | None:
+    msg = message.lower().strip()
+
+    url_match = _URL_PATTERN.search(message)
+    for kw in _BROWSE_KEYWORDS:
+        if kw in msg:
+            if url_match:
+                url = url_match.group()
+                if not url.startswith("http"):
+                    url = "https://" + url
+                return {"action": "navigate", "url": url}
+            if "search" in kw or "google" in kw or "look up" in kw:
+                query = msg
+                for prefix in _BROWSE_KEYWORDS:
+                    if query.startswith(prefix):
+                        query = query[len(prefix):].strip()
+                        break
+                return {"action": "search", "query": query}
+            if url_match:
+                url = url_match.group()
+                if not url.startswith("http"):
+                    url = "https://" + url
+                return {"action": "navigate", "url": url}
+            return {"action": "search", "query": msg}
+
+    if url_match:
+        url = url_match.group()
+        if not url.startswith("http"):
+            url = "https://" + url
+        return {"action": "navigate", "url": url}
+
+    return None
+
+
+async def _execute_browser_action(
+    intent: dict[str, str],
+) -> dict[str, str]:
+    action = intent.get("action", "")
+    result_info: dict[str, str] = {"action": action}
+
+    if action == "navigate":
+        result = await browser_session.navigate(intent["url"])
+        result_info["url"] = result.url
+        result_info["title"] = result.title
+        result_info["screenshot_b64"] = result.screenshot_b64
+        if not result.success:
+            result_info["error"] = result.error
+    elif action == "search":
+        result = await browser_session.search(intent["query"])
+        result_info["url"] = result.url
+        result_info["title"] = result.title
+        result_info["text_content"] = result.text_content[:3000]
+        result_info["screenshot_b64"] = result.screenshot_b64
+        if not result.success:
+            result_info["error"] = result.error
+    else:
+        result_info["error"] = f"Unknown action: {action}"
+
+    return result_info
 
 
 def _build_messages(
@@ -228,8 +305,49 @@ async def send_message(
     await db.flush()
     await db.refresh(user_msg)
 
+    browser_screenshot: str | None = None
+    browser_url: str | None = None
+    browser_context = ""
+
+    browser_intent = _detect_browser_intent(data.content)
+    if browser_intent:
+        try:
+            browser_result = await _execute_browser_action(browser_intent)
+            browser_screenshot = browser_result.get("screenshot_b64") or None
+            browser_url = browser_result.get("url") or None
+            page_title = browser_result.get("title", "")
+            page_text = browser_result.get("text_content", "")
+            error = browser_result.get("error", "")
+
+            if error:
+                browser_context = (
+                    f"\n\n[Browser action failed: {error}]"
+                )
+            elif page_text:
+                browser_context = (
+                    f"\n\n[I browsed to: {browser_url}]\n"
+                    f"[Page title: {page_title}]\n"
+                    f"[Page content summary:\n{page_text[:2000]}]"
+                )
+            elif browser_url:
+                browser_context = (
+                    f"\n\n[I opened: {browser_url}]\n"
+                    f"[Page title: {page_title}]\n"
+                    "[I took a screenshot for you.]"
+                )
+        except Exception as exc:
+            logger.warning("Browser action error: %s", exc)
+            browser_context = (
+                "\n\n[I tried to use the browser but "
+                f"ran into an issue: {exc}]"
+            )
+
+    content_for_ai = data.content
+    if browser_context:
+        content_for_ai = data.content + browser_context
+
     reply_text = await _generate_ai_reply(
-        history, data.content, current_user.full_name
+        history, content_for_ai, current_user.full_name
     )
 
     assistant_msg = ChatMessage(
@@ -241,4 +359,9 @@ async def send_message(
     await db.commit()
     await db.refresh(assistant_msg)
 
-    return ChatReply(user_message=user_msg, assistant_message=assistant_msg)
+    return ChatReply(
+        user_message=user_msg,
+        assistant_message=assistant_msg,
+        browser_screenshot=browser_screenshot,
+        browser_url=browser_url,
+    )

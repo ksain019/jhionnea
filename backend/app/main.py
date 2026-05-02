@@ -15,7 +15,17 @@ from app.config import settings
 from app.database import async_session, engine
 from app.models.base import Base
 from app.models.user import User
-from app.routers import analytics, auth, business, chat, content, dashboard, teaching, writing
+from app.routers import (
+    analytics,
+    auth,
+    browser,
+    business,
+    chat,
+    content,
+    dashboard,
+    teaching,
+    writing,
+)
 from app.utils.auth import hash_password
 
 
@@ -72,6 +82,7 @@ app.include_router(content.router)
 app.include_router(business.router)
 app.include_router(analytics.router)
 app.include_router(chat.router)
+app.include_router(browser.router)
 
 
 @app.get("/api/health")
