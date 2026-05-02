@@ -1,0 +1,22 @@
+import os
+
+from pydantic_settings import BaseSettings
+
+data_dir = "/data" if os.path.isdir("/data") else "."
+
+
+class Settings(BaseSettings):
+    app_name: str = "Jhionnea"
+    secret_key: str = "jhionnea-secret-key-change-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 1440  # 24 hours
+    database_url: str = f"sqlite+aiosqlite:///{data_dir}/jhionnea.db"
+    cors_origins: str = "http://localhost:3000"
+    hf_token: str = ""
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:3b"
+
+    model_config = {"env_prefix": "JHIONNEA_"}
+
+
+settings = Settings()
