@@ -7,6 +7,7 @@ from sqlalchemy import select
 # Import all models so they are registered with Base.metadata
 import app.models.analytics  # noqa: F401
 import app.models.business  # noqa: F401
+import app.models.chat  # noqa: F401
 import app.models.content  # noqa: F401
 import app.models.teaching  # noqa: F401
 import app.models.writing  # noqa: F401
@@ -14,7 +15,7 @@ from app.config import settings
 from app.database import async_session, engine
 from app.models.base import Base
 from app.models.user import User
-from app.routers import analytics, auth, business, content, dashboard, teaching, writing
+from app.routers import analytics, auth, business, chat, content, dashboard, teaching, writing
 from app.utils.auth import hash_password
 
 
@@ -70,6 +71,7 @@ app.include_router(teaching.router)
 app.include_router(content.router)
 app.include_router(business.router)
 app.include_router(analytics.router)
+app.include_router(chat.router)
 
 
 @app.get("/api/health")

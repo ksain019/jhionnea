@@ -161,6 +161,19 @@ export interface TradeLogEntry {
   created_at: string;
 }
 
+export interface ChatMessage {
+  id: number;
+  role: string;
+  content: string;
+  user_id: number;
+  created_at: string;
+}
+
+export interface ChatReply {
+  user_message: ChatMessage;
+  assistant_message: ChatMessage;
+}
+
 export const api = {
   login(username: string, password: string) {
     return apiFetch<LoginResponse>("/api/auth/login", {
@@ -247,5 +260,17 @@ export const api = {
   },
   getTrades(token: string) {
     return apiFetch<TradeLogEntry[]>("/api/analytics/trades", { token });
+  },
+
+  // Chat
+  getChatMessages(token: string, limit = 50) {
+    return apiFetch<ChatMessage[]>(`/api/chat/messages?limit=${limit}`, { token });
+  },
+  sendChatMessage(token: string, content: string) {
+    return apiFetch<ChatReply>("/api/chat/send", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ content }),
+    });
   },
 };
