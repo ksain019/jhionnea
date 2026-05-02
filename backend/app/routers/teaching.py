@@ -1,6 +1,6 @@
 import io
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,8 +128,8 @@ async def create_assignment(
 @router.post("/assignments/upload", response_model=AssignmentResponse, status_code=201)
 async def upload_assignment(
     file: UploadFile,
-    title: str = "",
-    student_id: int | None = None,
+    title: str = Form(""),
+    student_id: int | None = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
