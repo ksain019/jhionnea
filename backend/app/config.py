@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440  # 24 hours
     database_url: str = f"sqlite+aiosqlite:///{data_dir}/jhionnea.db"
     cors_origins: str = "http://localhost:3000"
+    hf_token: str = ""
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:3b"
 
     model_config = {"env_prefix": "JHIONNEA_"}
 
