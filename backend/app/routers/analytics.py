@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -128,10 +128,8 @@ async def update_parlay_result(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from fastapi import HTTPException
-
     result = await db.execute(
-        select(ParlayBet).where(ParlayBet.id == parlay_id)
+        select(ParlayBet).where(ParlayBet.id == parlay_id, ParlayBet.created_by == current_user.id)
     )
     parlay = result.scalar_one_or_none()
     if not parlay:

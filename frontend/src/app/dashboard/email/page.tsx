@@ -93,7 +93,7 @@ export default function EmailPage() {
     try {
       const result = await api.autoCleanGmail(token);
       setCleanResult(result);
-      handleLoadGmail();
+      await handleLoadGmail();
     } catch {
       // not connected
     }

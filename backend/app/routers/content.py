@@ -247,7 +247,7 @@ async def generate_podcast_audio(
             audio_stream(),
             media_type="audio/mpeg",
             headers={
-                "Content-Disposition": f'attachment; filename="{episode.title}.mp3"'
+                "Content-Disposition": f'attachment; filename="podcast-{episode.id}.mp3"'
             },
         )
     except Exception as e:
