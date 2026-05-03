@@ -27,6 +27,7 @@ from app.routers import (
     dashboard,
     documents,
     email_mgmt,
+    generators,
     gmail,
     teaching,
     writing,
@@ -91,6 +92,7 @@ app.include_router(browser.router)
 app.include_router(documents.router)
 app.include_router(email_mgmt.router)
 app.include_router(gmail.router)
+app.include_router(generators.router)
 
 
 @app.get("/api/health")

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     gmail_client_secret: str = ""
     gmail_redirect_uri: str = ""
 
+    # ElevenLabs
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel
+
     # Medium
     medium_token: str = ""
 

@@ -374,6 +374,65 @@ export interface ProgressReport {
   report_date: string;
 }
 
+export interface MetadataResult {
+  title_options: string[];
+  subtitle_options: string[];
+  keywords: string[];
+  categories: string[];
+  blurb: string;
+}
+
+export interface OutlineResult {
+  beat_sheet: Array<{ beat: string; chapter: number; description: string }>;
+  chapters: Array<{
+    chapter_number: number;
+    title: string;
+    summary: string;
+    pov: string;
+    conflict: string;
+    hook: string;
+  }>;
+}
+
+export interface WorkbookResult {
+  title: string;
+  grade_level: string;
+  subject: string;
+  units: Array<{
+    unit_number: number;
+    title: string;
+    topic: string;
+    worksheets: Array<{
+      worksheet_number: number;
+      title: string;
+      type: string;
+      description: string;
+    }>;
+    exit_ticket: { title: string; questions: number };
+  }>;
+  answer_key_summary: string;
+}
+
+export interface ProductionDashboard {
+  daily: {
+    cartoons: { done: number; target: number };
+    podcasts: { done: number; target: number };
+    shorts: { done: number; target: number };
+    total_items: number;
+  };
+  weekly: {
+    episodes: { done: number; target: number };
+    total_items: number;
+  };
+  monthly: {
+    novels: { done: number; target: number };
+    workbooks: { done: number; target: number };
+    notebooks: { done: number; target: number };
+    episodes: { done: number; target: number };
+    total_items: number;
+  };
+}
+
 export interface BrowserActionRequest {
   action: string;
   url?: string;
@@ -795,5 +854,40 @@ export const api = {
       token,
       body: JSON.stringify(data),
     });
+  },
+
+  // Generators
+  generateMetadata(token: string, data: { title: string; genre?: string; subgenre?: string; tropes?: string[] }) {
+    return apiFetch<MetadataResult>("/api/generators/metadata", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  generateNovelOutline(token: string, data: { title: string; genre?: string; trope?: string; protagonist?: string; love_interest?: string; setting?: string }) {
+    return apiFetch<OutlineResult>("/api/generators/novel-outline", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getTropes(token: string) {
+    return apiFetch<{ tropes: string[] }>("/api/generators/tropes", { token });
+  },
+  getConflicts(token: string) {
+    return apiFetch<{ internal: string[]; external: string[]; relational: string[] }>("/api/generators/conflicts", { token });
+  },
+  getPlotTwists(token: string) {
+    return apiFetch<Record<string, string[]>>("/api/generators/plot-twists", { token });
+  },
+  generateWorkbook(token: string, data: { subject: string; grade_level: string; title?: string }) {
+    return apiFetch<WorkbookResult>("/api/generators/workbook", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getProductionDashboard(token: string) {
+    return apiFetch<ProductionDashboard>("/api/generators/production-dashboard", { token });
   },
 };

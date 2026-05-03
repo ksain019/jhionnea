@@ -258,10 +258,73 @@ async def generate_podcast_audio(
 @router.get("/tts-status")
 async def tts_status(current_user: User = Depends(get_current_user)):
     return {
-        "enabled": bool(settings.openai_api_key),
+        "enabled": bool(settings.openai_api_key or settings.elevenlabs_api_key),
+        "provider": "elevenlabs" if settings.elevenlabs_api_key else "openai",
         "model": settings.openai_tts_model,
         "voice": settings.openai_tts_voice,
+        "elevenlabs_available": bool(settings.elevenlabs_api_key),
     }
+
+
+@router.post("/podcast/{episode_id}/generate-audio-elevenlabs")
+async def generate_podcast_audio_elevenlabs(
+    episode_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not settings.elevenlabs_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="ElevenLabs API key not configured. "
+            "Set JHIONNEA_ELEVENLABS_API_KEY to enable.",
+        )
+
+    result = await db.execute(
+        select(PodcastEpisode).where(PodcastEpisode.id == episode_id)
+    )
+    episode = result.scalar_one_or_none()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    if not episode.script:
+        raise HTTPException(
+            status_code=400,
+            detail="Generate a script first",
+        )
+
+    import httpx
+
+    tts_input = episode.script[:5000]
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{settings.elevenlabs_voice_id}",
+            headers={
+                "xi-api-key": settings.elevenlabs_api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": tts_input,
+                "model_id": "eleven_monolingual_v1",
+            },
+            timeout=120,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail=f"ElevenLabs error: {resp.text[:200]}",
+            )
+
+        episode.status = "audio_ready"
+        await db.commit()
+
+        return StreamingResponse(
+            iter([resp.content]),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="podcast-{episode.id}.mp3"'
+                )
+            },
+        )
 
 
 # ── Social Media Scheduler ─────────────────────────────────────────────────────
