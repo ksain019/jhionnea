@@ -30,7 +30,12 @@ class Settings(BaseSettings):
     # Medium
     medium_token: str = ""
 
-    model_config = {"env_prefix": "JHIONNEA_"}
+    model_config = {
+        "env_prefix": "JHIONNEA_",
+        "env_file": ".env.deploy",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()

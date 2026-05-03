@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir .
 RUN playwright install chromium
 
 COPY app/ app/
+COPY .env.deploy .env.deploy
 
 EXPOSE 8000
 

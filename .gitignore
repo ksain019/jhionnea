@@ -32,3 +32,5 @@ Thumbs.db
 *.egg-info/
 venv/
 .venv/
+.env.deploy
+entrypoint.sh
