@@ -23,13 +23,17 @@ from app.routers import (
     auth,
     browser,
     business,
+    calendar,
     chat,
     content,
     dashboard,
     documents,
     email_mgmt,
+    exports,
     generators,
     gmail,
+    notifications,
+    search,
     system,
     teaching,
     writing,
@@ -101,6 +105,10 @@ app.include_router(gmail.router)
 app.include_router(generators.router)
 app.include_router(settings_router.router)
 app.include_router(system.router)
+app.include_router(notifications.router)
+app.include_router(exports.router)
+app.include_router(calendar.router)
+app.include_router(search.router)
 
 
 @app.get("/api/health")

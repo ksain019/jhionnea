@@ -963,4 +963,46 @@ export const api = {
   getUptime(token: string) {
     return apiFetch<{ uptime_seconds: number; uptime_formatted: string; started_at: string }>("/api/system/uptime", { token });
   },
+
+  // Notifications
+  getNotifications(token: string) {
+    return apiFetch<{ notifications: Array<Record<string, unknown>>; unread_count: number }>("/api/notifications", { token });
+  },
+  createReminder(token: string, data: { title: string; message: string; category?: string; priority?: string; due_date?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/notifications", { token, method: "POST", body: JSON.stringify(data) });
+  },
+  markNotificationRead(token: string, id: number) {
+    return apiFetch<Record<string, unknown>>(`/api/notifications/${id}/read`, { token, method: "PUT" });
+  },
+  markAllRead(token: string) {
+    return apiFetch<{ marked: number }>("/api/notifications/read-all", { token, method: "PUT" });
+  },
+  deleteNotification(token: string, id: number) {
+    return apiFetch<Record<string, unknown>>(`/api/notifications/${id}`, { token, method: "DELETE" });
+  },
+
+  // Exports
+  getExportFormats(token: string) {
+    return apiFetch<{ formats: Array<{ id: string; name: string; ext: string; desc: string }> }>("/api/exports/formats", { token });
+  },
+
+  // Production Calendar
+  getProductionCalendar(token: string, month?: number, year?: number) {
+    const params = month && year ? `?month=${month}&year=${year}` : "";
+    return apiFetch<{ events: Array<Record<string, unknown>> }>(`/api/calendar/events${params}`, { token });
+  },
+  createProductionEvent(token: string, data: { title: string; date: string; platform?: string; content_type?: string; status?: string; notes?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/calendar/events", { token, method: "POST", body: JSON.stringify(data) });
+  },
+  deleteProductionEvent(token: string, id: number) {
+    return apiFetch<Record<string, unknown>>(`/api/calendar/events/${id}`, { token, method: "DELETE" });
+  },
+  getPublishingPlatforms(token: string) {
+    return apiFetch<{ platforms: Array<{ id: string; name: string; type: string }> }>("/api/calendar/platforms", { token });
+  },
+
+  // Search
+  searchAll(token: string, query: string) {
+    return apiFetch<{ query: string; total: number; results: Array<{ type: string; id: number; title: string; subtitle: string; link: string }> }>(`/api/search?q=${encodeURIComponent(query)}`, { token });
+  },
 };
