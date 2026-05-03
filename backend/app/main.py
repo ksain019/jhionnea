@@ -30,6 +30,7 @@ from app.routers import (
     documents,
     email_mgmt,
     exports,
+    files,
     generators,
     gmail,
     notifications,
@@ -109,6 +110,7 @@ app.include_router(notifications.router)
 app.include_router(exports.router)
 app.include_router(calendar.router)
 app.include_router(search.router)
+app.include_router(files.router)
 
 
 @app.get("/api/health")

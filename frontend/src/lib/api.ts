@@ -1001,6 +1001,17 @@ export const api = {
     return apiFetch<{ platforms: Array<{ id: string; name: string; type: string }> }>("/api/calendar/platforms", { token });
   },
 
+  // Files
+  listFiles(token: string, folder = "") {
+    return apiFetch<{ files: Array<{ name: string; type: string; size_mb: number; modified: string; path: string }>; folder: string }>(`/api/files?folder=${encodeURIComponent(folder)}`, { token });
+  },
+  getStorageInfo(token: string) {
+    return apiFetch<{ total_size_mb: number; file_count: number; folder_count: number }>("/api/files/storage-info", { token });
+  },
+  deleteFile(token: string, filepath: string) {
+    return apiFetch<Record<string, unknown>>(`/api/files/${encodeURIComponent(filepath)}`, { token, method: "DELETE" });
+  },
+
   // Search
   searchAll(token: string, query: string) {
     return apiFetch<{ query: string; total: number; results: Array<{ type: string; id: number; title: string; subtitle: string; link: string }> }>(`/api/search?q=${encodeURIComponent(query)}`, { token });
