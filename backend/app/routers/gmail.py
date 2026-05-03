@@ -1,4 +1,6 @@
 import logging
+import secrets
+import time
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -21,6 +23,7 @@ SCOPES = [
 ]
 
 _tokens: dict[int, dict] = {}
+_pending_states: dict[str, tuple[int, float]] = {}
 
 
 @router.get("/status")
@@ -41,6 +44,8 @@ async def gmail_auth_url(current_user: User = Depends(get_current_user)):
             " and JHIONNEA_GMAIL_CLIENT_SECRET.",
         )
     redirect_uri = settings.gmail_redirect_uri or "http://localhost:8000/api/gmail/callback"
+    state_token = secrets.token_urlsafe(32)
+    _pending_states[state_token] = (current_user.id, time.time())
     params = {
         "client_id": settings.gmail_client_id,
         "redirect_uri": redirect_uri,
@@ -48,7 +53,7 @@ async def gmail_auth_url(current_user: User = Depends(get_current_user)):
         "scope": " ".join(SCOPES),
         "access_type": "offline",
         "prompt": "consent",
-        "state": str(current_user.id),
+        "state": state_token,
     }
     query = "&".join(f"{k}={httpx.URL('', params={k: v}).params[k]}" for k, v in params.items())
     url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
@@ -56,9 +61,16 @@ async def gmail_auth_url(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/callback")
-async def gmail_callback(code: str, state: str = "0"):
+async def gmail_callback(code: str, state: str = ""):
     if not settings.gmail_client_id:
         raise HTTPException(status_code=400, detail="Gmail not configured")
+
+    pending = _pending_states.pop(state, None)
+    if not pending:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+    user_id, created_at = pending
+    if time.time() - created_at > 600:
+        raise HTTPException(status_code=400, detail="OAuth state expired")
 
     redirect_uri = settings.gmail_redirect_uri or "http://localhost:8000/api/gmail/callback"
     async with httpx.AsyncClient() as client:
@@ -76,7 +88,6 @@ async def gmail_callback(code: str, state: str = "0"):
             raise HTTPException(status_code=400, detail=f"OAuth error: {resp.text}")
 
         token_data = resp.json()
-        user_id = int(state) if state.isdigit() else 0
         _tokens[user_id] = token_data
         logger.info("Gmail connected for user %d", user_id)
 
@@ -190,7 +201,7 @@ async def auto_clean_inbox(
 ):
     headers = await _get_gmail_headers(current_user.id)
 
-    from app.models.email import EmailRule
+    from app.models.email import EmailRule  # noqa: E402
 
     rules_result = await db.execute(
         select(EmailRule).where(
@@ -228,7 +239,7 @@ async def auto_clean_inbox(
             sender = hdrs.get("From", "")
             subject = hdrs.get("Subject", "")
 
-            from app.routers.email_mgmt import _classify_email
+            from app.routers.email_mgmt import _classify_email  # noqa: E402
             action, reason, _ = _classify_email(
                 sender, subject, "", msg_data.get("labelIds", []), rules
             )
