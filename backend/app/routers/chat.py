@@ -133,6 +133,27 @@ def _build_messages(
     return messages
 
 
+async def _call_openai(messages: list[dict[str, str]]) -> str | None:
+    if not settings.openai_api_key:
+        return None
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        response = await client.chat.completions.create(
+            model=settings.openai_model,
+            messages=messages,
+            max_tokens=2048,
+            temperature=0.7,
+        )
+        content = response.choices[0].message.content
+        if content and content.strip():
+            return content.strip()
+    except Exception as e:
+        logger.warning("OpenAI failed: %s", e)
+    return None
+
+
 async def _call_ollama(messages: list[dict[str, str]]) -> str | None:
     ollama_url = settings.ollama_url
     try:
@@ -250,7 +271,12 @@ async def _generate_ai_reply(
 ) -> str:
     messages = _build_messages(history, user_content, user_name)
 
-    # Try Ollama first (local, free)
+    # Try OpenAI first (best quality)
+    result = await _call_openai(messages)
+    if result:
+        return result
+
+    # Try Ollama (local, free)
     result = await _call_ollama(messages)
     if result:
         return result

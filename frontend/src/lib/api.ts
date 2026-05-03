@@ -300,6 +300,80 @@ export interface ChatReply {
   browser_url?: string | null;
 }
 
+export interface SportsEvent {
+  id: number;
+  sport: string;
+  event_name: string;
+  teams: string;
+  analysis: string | null;
+  odds_team1: string | null;
+  odds_team2: string | null;
+  odds_draw: string | null;
+  prediction: string | null;
+  confidence: string | null;
+  result: string | null;
+  event_date: string;
+  created_by: number;
+  created_at: string;
+}
+
+export interface Parlay {
+  id: number;
+  name: string;
+  legs: string;
+  total_odds: string | null;
+  stake: number | null;
+  potential_payout: number | null;
+  status: string;
+  result_notes: string | null;
+  created_by: number;
+  created_at: string;
+}
+
+export interface SocialPost {
+  id: number;
+  platform: string;
+  content: string;
+  media_url: string | null;
+  scheduled_date: string | null;
+  status: string;
+  post_url: string | null;
+  created_at: string | null;
+}
+
+export interface ProgressReport {
+  student: {
+    id: number;
+    name: string;
+    email: string | null;
+    grade_level: string | null;
+  };
+  academic_summary: {
+    total_assignments: number;
+    graded_assignments: number;
+    average_score: number | null;
+    grade_distribution: Record<string, number>;
+    performance_level: string;
+  };
+  attendance_summary: {
+    total_days: number;
+    present: number;
+    absent: number;
+    late: number;
+    attendance_percentage: number | null;
+  };
+  recommendations: string[];
+  recent_assignments: Array<{
+    title: string;
+    grade: string | null;
+    score: number | null;
+    status: string;
+    feedback: string | null;
+    date: string | null;
+  }>;
+  report_date: string;
+}
+
 export interface BrowserActionRequest {
   action: string;
   url?: string;
@@ -602,8 +676,39 @@ export const api = {
   getWatchlist(token: string) {
     return apiFetch<WatchlistItem[]>("/api/analytics/watchlist", { token });
   },
+  addToWatchlist(token: string, data: { symbol: string; name: string; asset_type?: string; notes?: string }) {
+    return apiFetch<WatchlistItem>("/api/analytics/watchlist", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
   getTrades(token: string) {
     return apiFetch<TradeLogEntry[]>("/api/analytics/trades", { token });
+  },
+  createSportsEvent(token: string, data: {
+    sport: string; event_name: string; teams: string; event_date: string;
+    odds_team1?: string; odds_team2?: string; odds_draw?: string;
+    prediction?: string; confidence?: string; analysis?: string;
+  }) {
+    return apiFetch<SportsEvent>("/api/analytics/sports", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getSportsEvents(token: string) {
+    return apiFetch<SportsEvent[]>("/api/analytics/sports", { token });
+  },
+  getParlays(token: string) {
+    return apiFetch<Parlay[]>("/api/analytics/parlays", { token });
+  },
+  createParlay(token: string, data: { name: string; legs: string[]; total_odds?: string; stake?: number; potential_payout?: number }) {
+    return apiFetch<Parlay>("/api/analytics/parlays", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
   },
 
   // Chat
@@ -616,6 +721,71 @@ export const api = {
       token,
       body: JSON.stringify({ content }),
     });
+  },
+
+  // Social Media
+  getSocialPosts(token: string) {
+    return apiFetch<SocialPost[]>("/api/content/social-posts", { token });
+  },
+  createSocialPost(token: string, data: { platform: string; content: string; media_url?: string; scheduled_date?: string }) {
+    return apiFetch<SocialPost>("/api/content/social-posts", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+
+  // TTS
+  getTtsStatus(token: string) {
+    return apiFetch<{ enabled: boolean; model: string; voice: string }>("/api/content/tts-status", { token });
+  },
+  generatePodcastAudio(token: string, episodeId: number) {
+    return fetch(`${API_BASE}/api/content/podcast/${episodeId}/generate-audio`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  // Gmail
+  getGmailStatus(token: string) {
+    return apiFetch<{ configured: boolean; connected: boolean }>("/api/gmail/status", { token });
+  },
+  getGmailAuthUrl(token: string) {
+    return apiFetch<{ auth_url: string }>("/api/gmail/auth-url", { token });
+  },
+  getGmailInbox(token: string, maxResults = 20) {
+    return apiFetch<{ emails: Array<{ id: string; from: string; subject: string; date: string; snippet: string; labels: string[] }>; total: number }>(
+      `/api/gmail/inbox?max_results=${maxResults}`, { token }
+    );
+  },
+  deleteGmailMessage(token: string, messageId: string) {
+    return apiFetch<{ detail: string }>(`/api/gmail/messages/${messageId}`, {
+      method: "DELETE",
+      token,
+    });
+  },
+  autoCleanGmail(token: string) {
+    return apiFetch<{ deleted: number; kept: number; total: number }>("/api/gmail/auto-clean", {
+      method: "POST",
+      token,
+    });
+  },
+
+  // Medium
+  getMediumStatus(token: string) {
+    return apiFetch<{ enabled: boolean }>("/api/content/medium/status", { token });
+  },
+  publishToMedium(token: string, data: { title: string; content: string; format?: string; status?: string; tags?: string[] }) {
+    return apiFetch<Record<string, unknown>>("/api/content/medium/publish", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Progress Reports
+  getProgressReport(token: string, studentId: number) {
+    return apiFetch<ProgressReport>(`/api/teaching/students/${studentId}/progress-report`, { token });
   },
 
   // Browser

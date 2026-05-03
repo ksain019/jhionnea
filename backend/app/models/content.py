@@ -82,3 +82,17 @@ class PodcastEpisode(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class SocialPost(Base):
+    __tablename__ = "social_posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    platform: Mapped[str] = mapped_column(String(50))
+    content: Mapped[str] = mapped_column(Text)
+    media_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    scheduled_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default="draft")
+    post_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -16,6 +16,20 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
 
+    # OpenAI
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    openai_tts_model: str = "tts-1"
+    openai_tts_voice: str = "nova"
+
+    # Gmail OAuth
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    gmail_redirect_uri: str = ""
+
+    # Medium
+    medium_token: str = ""
+
     model_config = {"env_prefix": "JHIONNEA_"}
 
 

@@ -1,11 +1,15 @@
+import json
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.analytics import SportsEvent, TradeLog, Watchlist
+from app.models.analytics import ParlayBet, SportsEvent, TradeLog, Watchlist
 from app.models.user import User
 from app.schemas.analytics import (
+    ParlayCreate,
+    ParlayResponse,
     SportsEventCreate,
     SportsEventResponse,
     TradeLogCreate,
@@ -82,3 +86,58 @@ async def create_sports_event(
     await db.commit()
     await db.refresh(event)
     return event
+
+
+# ── Parlays ────────────────────────────────────────────────────────────────────
+
+@router.get("/parlays", response_model=list[ParlayResponse])
+async def list_parlays(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(ParlayBet).order_by(ParlayBet.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.post("/parlays", response_model=ParlayResponse, status_code=201)
+async def create_parlay(
+    data: ParlayCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    parlay = ParlayBet(
+        name=data.name,
+        legs=json.dumps(data.legs),
+        total_odds=data.total_odds,
+        stake=data.stake,
+        potential_payout=data.potential_payout,
+        created_by=current_user.id,
+    )
+    db.add(parlay)
+    await db.commit()
+    await db.refresh(parlay)
+    return parlay
+
+
+@router.put("/parlays/{parlay_id}/result", response_model=ParlayResponse)
+async def update_parlay_result(
+    parlay_id: int,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from fastapi import HTTPException
+
+    result = await db.execute(
+        select(ParlayBet).where(ParlayBet.id == parlay_id)
+    )
+    parlay = result.scalar_one_or_none()
+    if not parlay:
+        raise HTTPException(status_code=404, detail="Parlay not found")
+    parlay.status = data.get("status", parlay.status)
+    parlay.result_notes = data.get("result_notes", parlay.result_notes)
+    await db.commit()
+    await db.refresh(parlay)
+    return parlay
