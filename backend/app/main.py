@@ -32,6 +32,9 @@ from app.routers import (
     teaching,
     writing,
 )
+from app.routers import (
+    settings as settings_router,
+)
 from app.utils.auth import hash_password
 
 
@@ -93,6 +96,7 @@ app.include_router(documents.router)
 app.include_router(email_mgmt.router)
 app.include_router(gmail.router)
 app.include_router(generators.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/api/health")

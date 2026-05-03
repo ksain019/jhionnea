@@ -19,7 +19,14 @@ type Tab =
   | "workbook"
   | "tropes"
   | "conflicts"
-  | "twists";
+  | "twists"
+  | "character"
+  | "scene"
+  | "series"
+  | "villain"
+  | "cover"
+  | "dialogue"
+  | "pacing";
 
 export default function GeneratorsPage() {
   const { toggleSidebar } = useSidebar();
@@ -55,6 +62,31 @@ export default function GeneratorsPage() {
   const [wbResult, setWbResult] = useState<WorkbookResult | null>(null);
   const [wbLoading, setWbLoading] = useState(false);
 
+  // Character Bible
+  const [charName, setCharName] = useState("");
+  const [charRole, setCharRole] = useState("protagonist");
+  const [charAge, setCharAge] = useState("");
+  const [charOccupation, setCharOccupation] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [charResult, setCharResult] = useState<any>(null);
+  const [charLoading, setCharLoading] = useState(false);
+
+  // Scene Plotter
+  const [sceneChapter, setSceneChapter] = useState("1");
+  const [scenePov, setScenePov] = useState("");
+  const [sceneGoal, setSceneGoal] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [sceneResult, setSceneResult] = useState<any>(null);
+  const [sceneLoading, setSceneLoading] = useState(false);
+
+  // Series Bible
+  const [seriesTitle, setSeriesTitle] = useState("");
+  const [seriesBooks, setSeriesBooks] = useState("3");
+  const [seriesSetting, setSeriesSetting] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [seriesResult, setSeriesResult] = useState<any>(null);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+
   // Reference data
   const [tropes, setTropes] = useState<string[]>([]);
   const [conflicts, setConflicts] = useState<{
@@ -66,6 +98,16 @@ export default function GeneratorsPage() {
     string,
     string[]
   > | null>(null);
+  const [villainMotivations, setVillainMotivations] = useState<Record<
+    string,
+    string[]
+  > | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [coverChecklist, setCoverChecklist] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [dialogueGuide, setDialogueGuide] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [pacingGuide, setPacingGuide] = useState<any>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -83,7 +125,19 @@ export default function GeneratorsPage() {
     if (tab === "twists" && !plotTwists) {
       api.getPlotTwists(token).then(setPlotTwists).catch(() => {});
     }
-  }, [tab, conflicts, plotTwists]);
+    if (tab === "villain" && !villainMotivations) {
+      api.getVillainMotivations(token).then(setVillainMotivations).catch(() => {});
+    }
+    if (tab === "cover" && !coverChecklist) {
+      api.getCoverChecklist(token).then(setCoverChecklist).catch(() => {});
+    }
+    if (tab === "dialogue" && !dialogueGuide) {
+      api.getDialogueGuide(token).then(setDialogueGuide).catch(() => {});
+    }
+    if (tab === "pacing" && !pacingGuide) {
+      api.getPacingGuide(token).then(setPacingGuide).catch(() => {});
+    }
+  }, [tab, conflicts, plotTwists, villainMotivations, coverChecklist, dialogueGuide, pacingGuide]);
 
   async function handleMetadata(e: React.FormEvent) {
     e.preventDefault();
@@ -143,14 +197,70 @@ export default function GeneratorsPage() {
     setWbLoading(false);
   }
 
+  async function handleCharBible(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    setCharLoading(true);
+    try {
+      const result = await api.generateCharacterBible(token, {
+        name: charName,
+        role: charRole,
+        age: charAge || undefined,
+        occupation: charOccupation || undefined,
+      });
+      setCharResult(result);
+    } catch { /* ignore */ }
+    setCharLoading(false);
+  }
+
+  async function handleScenePlot(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    setSceneLoading(true);
+    try {
+      const result = await api.plotScene(token, {
+        chapter_number: parseInt(sceneChapter),
+        pov_character: scenePov || undefined,
+        scene_goal: sceneGoal || undefined,
+      });
+      setSceneResult(result);
+    } catch { /* ignore */ }
+    setSceneLoading(false);
+  }
+
+  async function handleSeriesBible(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    setSeriesLoading(true);
+    try {
+      const result = await api.generateSeriesBible(token, {
+        series_title: seriesTitle,
+        num_books: parseInt(seriesBooks),
+        setting: seriesSetting || undefined,
+      });
+      setSeriesResult(result);
+    } catch { /* ignore */ }
+    setSeriesLoading(false);
+  }
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "production", label: "Production" },
     { key: "metadata", label: "KDP Metadata" },
     { key: "novel", label: "Novel Outline" },
+    { key: "character", label: "Character Bible" },
+    { key: "scene", label: "Scene Plotter" },
+    { key: "series", label: "Series Bible" },
     { key: "workbook", label: "Workbook" },
     { key: "tropes", label: "Tropes" },
     { key: "conflicts", label: "Conflicts" },
     { key: "twists", label: "Plot Twists" },
+    { key: "villain", label: "Villain" },
+    { key: "cover", label: "Cover Design" },
+    { key: "dialogue", label: "Dialogue" },
+    { key: "pacing", label: "Pacing" },
   ];
 
   const inputCls =
@@ -696,6 +806,337 @@ export default function GeneratorsPage() {
               ))}
             {!plotTwists && (
               <p className="text-muted text-sm">Loading plot twists...</p>
+            )}
+          </div>
+        )}
+        {/* Character Bible */}
+        {tab === "character" && (
+          <div className="bg-card-bg rounded-xl border border-card-border p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Character Bible Generator</h3>
+            <form onSubmit={handleCharBible} className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="text" value={charName} onChange={(e) => setCharName(e.target.value)} placeholder="Character name" className={inputCls} required />
+                <select value={charRole} onChange={(e) => setCharRole(e.target.value)} className={inputCls}>
+                  <option value="protagonist">Protagonist</option>
+                  <option value="love_interest">Love Interest</option>
+                  <option value="antagonist">Antagonist</option>
+                  <option value="supporting">Supporting</option>
+                </select>
+                <input type="text" value={charAge} onChange={(e) => setCharAge(e.target.value)} placeholder="Age (e.g., 28)" className={inputCls} />
+                <input type="text" value={charOccupation} onChange={(e) => setCharOccupation(e.target.value)} placeholder="Occupation" className={inputCls} />
+              </div>
+              <button type="submit" className={btnPrimary} disabled={charLoading}>
+                {charLoading ? "Generating..." : "Generate Character Bible"}
+              </button>
+            </form>
+            {charResult && (
+              <div className="space-y-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-800 mb-1">Overview</h4>
+                  <p className="text-sm text-purple-700">{charResult.overview as string}</p>
+                </div>
+                {charResult.physical && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Physical</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                      {Object.entries(charResult.physical as Record<string, string>).map(([k, v]) => (
+                        <div key={k}><span className="text-gray-500">{k}:</span> <span className="text-gray-800">{v}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {charResult.personality && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Personality</h4>
+                    {Object.entries(charResult.personality as Record<string, string[]>).map(([k, v]) => (
+                      <div key={k} className="mb-2">
+                        <span className="text-xs text-gray-500 uppercase">{k}:</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(Array.isArray(v) ? v : [v]).map((item: string, i: number) => (
+                            <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{item}</span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {charResult.backstory && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <h4 className="font-medium text-amber-800 mb-1">Backstory</h4>
+                    <p className="text-sm text-amber-700">{charResult.backstory as string}</p>
+                  </div>
+                )}
+                {charResult.internal_arc && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Internal Arc</h4>
+                    <div className="flex items-center gap-2 text-sm flex-wrap">
+                      {Object.entries(charResult.internal_arc as Record<string, string>).map(([k, v], i) => (
+                        <span key={k} className="flex items-center gap-1">
+                          {i > 0 && <span className="text-gray-400">&rarr;</span>}
+                          <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs">{k}: {v}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {charResult.dialogue_style && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Dialogue Style</h4>
+                    {Object.entries(charResult.dialogue_style as Record<string, unknown>).map(([k, v]) => (
+                      <div key={k} className="mb-1 text-sm">
+                        <span className="text-gray-500 capitalize">{k}:</span>{" "}
+                        <span className="text-gray-800">{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Scene Plotter */}
+        {tab === "scene" && (
+          <div className="bg-card-bg rounded-xl border border-card-border p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Scene-by-Scene Plotter</h3>
+            <form onSubmit={handleScenePlot} className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="number" min="1" max="20" value={sceneChapter} onChange={(e) => setSceneChapter(e.target.value)} placeholder="Chapter #" className={inputCls} required />
+                <input type="text" value={scenePov} onChange={(e) => setScenePov(e.target.value)} placeholder="POV character" className={inputCls} />
+                <input type="text" value={sceneGoal} onChange={(e) => setSceneGoal(e.target.value)} placeholder="Scene goal" className={inputCls} />
+              </div>
+              <button type="submit" className={btnPrimary} disabled={sceneLoading}>
+                {sceneLoading ? "Plotting..." : "Plot Scene"}
+              </button>
+            </form>
+            {sceneResult && (
+              <div className="space-y-3">
+                {["scene_purpose", "pov", "goal", "conflict", "turning_point", "outcome", "hook"].map((key) =>
+                  sceneResult[key] ? (
+                    <div key={key} className="p-3 bg-gray-50 rounded-lg">
+                      <span className="text-xs font-bold text-primary uppercase">{key.replace(/_/g, " ")}</span>
+                      <p className="text-sm text-gray-700 mt-1">{sceneResult[key] as string}</p>
+                    </div>
+                  ) : null
+                )}
+                {sceneResult.action && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <span className="text-xs font-bold text-blue-600 uppercase">Action Beats</span>
+                    <ol className="list-decimal pl-5 mt-1 text-sm text-gray-700 space-y-1">
+                      {(sceneResult.action as string[]).map((beat: string, i: number) => <li key={i}>{beat}</li>)}
+                    </ol>
+                  </div>
+                )}
+                {sceneResult.sensory_details && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <span className="text-xs font-bold text-green-600 uppercase">Sensory Details</span>
+                    <ul className="mt-1 text-sm text-gray-700 space-y-1">
+                      {(sceneResult.sensory_details as string[]).map((d: string, i: number) => <li key={i}>&#x1f33f; {d}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Series Bible */}
+        {tab === "series" && (
+          <div className="bg-card-bg rounded-xl border border-card-border p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Series Bible Generator</h3>
+            <form onSubmit={handleSeriesBible} className="space-y-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input type="text" value={seriesTitle} onChange={(e) => setSeriesTitle(e.target.value)} placeholder="Series title" className={inputCls} required />
+                <select value={seriesBooks} onChange={(e) => setSeriesBooks(e.target.value)} className={inputCls}>
+                  {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} books</option>)}
+                </select>
+                <input type="text" value={seriesSetting} onChange={(e) => setSeriesSetting(e.target.value)} placeholder="Setting" className={inputCls} />
+              </div>
+              <button type="submit" className={btnPrimary} disabled={seriesLoading}>
+                {seriesLoading ? "Generating..." : "Generate Series Bible"}
+              </button>
+            </form>
+            {seriesResult && (
+              <div className="space-y-4">
+                {seriesResult.series_overview && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-indigo-800 mb-1">Overview</h4>
+                    <p className="text-sm text-indigo-700">{seriesResult.series_overview as string}</p>
+                  </div>
+                )}
+                {seriesResult.books && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Books</h4>
+                    <div className="space-y-2">
+                      {(seriesResult.books as Array<Record<string, unknown>>).map((book, i: number) => (
+                        <div key={i} className="p-3 bg-gray-50 rounded-lg border-l-4 border-primary">
+                          <div className="font-medium text-sm text-gray-800">Book {book.book_number as number}: {book.title as string}</div>
+                          <div className="text-xs text-gray-500 mt-1">{book.central_conflict as string}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {seriesResult.themes && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Themes</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(seriesResult.themes as string[]).map((t: string, i: number) => (
+                        <span key={i} className="px-3 py-1 bg-pink-100 text-pink-700 rounded-full text-xs">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {seriesResult.continuity_rules && (
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-2">Continuity Rules</h4>
+                    <ul className="space-y-1">
+                      {(seriesResult.continuity_rules as string[]).map((r: string, i: number) => (
+                        <li key={i} className="text-sm text-gray-600 flex gap-2"><span className="text-green-500">&#x2713;</span> {r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Villain Motivations */}
+        {tab === "villain" && (
+          <div className="space-y-6">
+            {villainMotivations && Object.entries(villainMotivations).map(([type, items]) => (
+              <div key={type} className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3 capitalize">{type.replace(/_/g, " ")} Motivations</h3>
+                <ul className="space-y-2">
+                  {items.map((m: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="text-red-500 mt-0.5">&#x1f525;</span> {m}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            {!villainMotivations && <p className="text-muted text-sm">Loading...</p>}
+          </div>
+        )}
+
+        {/* Cover Design Checklist */}
+        {tab === "cover" && coverChecklist && (
+          <div className="space-y-6">
+            {Object.entries(coverChecklist as Record<string, Record<string, unknown>>).map(([section, items]) => (
+              <div key={section} className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3 capitalize">{section.replace(/_/g, " ")}</h3>
+                {typeof items === "object" && !Array.isArray(items) ? (
+                  <div className="space-y-2">
+                    {Object.entries(items as Record<string, unknown>).map(([k, v]) => (
+                      <div key={k} className="flex items-start gap-2 text-sm">
+                        <span className="text-primary font-medium capitalize min-w-[120px]">{k.replace(/_/g, " ")}:</span>
+                        <span className="text-gray-700">{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dialogue Style Guide */}
+        {tab === "dialogue" && dialogueGuide && (
+          <div className="space-y-6">
+            {dialogueGuide.principles && (
+              <div className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Principles</h3>
+                <div className="space-y-3">
+                  {Object.entries(dialogueGuide.principles as Record<string, string>).map(([k, v]) => (
+                    <div key={k} className="p-3 bg-blue-50 rounded-lg">
+                      <span className="text-sm font-bold text-blue-700 capitalize">{k.replace(/_/g, " ")}</span>
+                      <p className="text-sm text-gray-700 mt-1">{v}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {dialogueGuide.formatting_rules && (
+              <div className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Formatting Rules</h3>
+                <ul className="space-y-2">
+                  {(dialogueGuide.formatting_rules as string[]).map((r: string, i: number) => (
+                    <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-blue-500">&#x270E;</span> {r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {dialogueGuide.common_mistakes && (
+              <div className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Common Mistakes to Avoid</h3>
+                <ul className="space-y-2">
+                  {(dialogueGuide.common_mistakes as string[]).map((m: string, i: number) => (
+                    <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-red-400">&#x2717;</span> {m}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Novel Pacing Guide */}
+        {tab === "pacing" && pacingGuide && (
+          <div className="space-y-6">
+            {pacingGuide.structure && (
+              <div className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Three-Act Structure</h3>
+                <div className="flex gap-2 mb-6 h-8">
+                  <div className="bg-blue-500 rounded-l-lg flex items-center justify-center text-white text-xs font-bold" style={{width: "25%"}}>Act I (25%)</div>
+                  <div className="bg-purple-500 flex items-center justify-center text-white text-xs font-bold" style={{width: "50%"}}>Act II (50%)</div>
+                  <div className="bg-pink-500 rounded-r-lg flex items-center justify-center text-white text-xs font-bold" style={{width: "25%"}}>Act III (25%)</div>
+                </div>
+                {Object.entries(pacingGuide.structure as Record<string, Record<string, unknown>>).map(([act, info]) => (
+                  <div key={act} className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="font-medium text-sm text-gray-800 capitalize mb-1">{act.replace(/_/g, " ")} — Chapters {info.chapters as string}</div>
+                    <p className="text-xs text-gray-600 mb-2">{info.purpose as string}</p>
+                    {Array.isArray(info.beats) && (
+                      <div className="flex flex-wrap gap-1">
+                        {(info.beats as string[]).map((b: string, i: number) => (
+                          <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">{b}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {pacingGuide.tension_curve && (
+              <div className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Tension Curve</h3>
+                <div className="space-y-2">
+                  {(pacingGuide.tension_curve as Array<{chapter: number; tension: number; label: string}>).map((point) => (
+                    <div key={point.chapter} className="flex items-center gap-3">
+                      <span className="text-xs text-gray-500 w-12">Ch {point.chapter}</span>
+                      <div className="flex-1 bg-gray-200 rounded-full h-4">
+                        <div
+                          className={`h-4 rounded-full transition-all ${
+                            point.tension >= 80 ? "bg-red-500" : point.tension >= 60 ? "bg-orange-500" : point.tension >= 40 ? "bg-yellow-500" : "bg-green-500"
+                          }`}
+                          style={{width: `${point.tension}%`}}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600 w-32">{point.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {pacingGuide.scene_pacing_tips && (
+              <div className="bg-card-bg rounded-xl border border-card-border p-6">
+                <h3 className="text-lg font-semibold text-foreground mb-3">Pacing Tips</h3>
+                <ul className="space-y-2">
+                  {(pacingGuide.scene_pacing_tips as string[]).map((tip: string, i: number) => (
+                    <li key={i} className="text-sm text-gray-700 flex gap-2"><span className="text-primary">&#x25B6;</span> {tip}</li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}

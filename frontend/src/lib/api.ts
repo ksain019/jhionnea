@@ -890,4 +890,48 @@ export const api = {
   getProductionDashboard(token: string) {
     return apiFetch<ProductionDashboard>("/api/generators/production-dashboard", { token });
   },
+  generateCharacterBible(token: string, data: { name: string; role?: string; genre?: string; age?: string; occupation?: string; novel_title?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/generators/character-bible", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  plotScene(token: string, data: { chapter_number: number; chapter_title?: string; pov_character?: string; scene_goal?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/generators/scene-plotter", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  generateSeriesBible(token: string, data: { series_title: string; num_books?: number; genre?: string; setting?: string; theme?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/generators/series-bible", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getVillainMotivations(token: string) {
+    return apiFetch<Record<string, string[]>>("/api/generators/villain-motivations", { token });
+  },
+  getCoverChecklist(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/generators/cover-checklist", { token });
+  },
+  getDialogueGuide(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/generators/dialogue-guide", { token });
+  },
+  getPacingGuide(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/generators/pacing-guide", { token });
+  },
+
+  // Settings
+  getConnectedServices(token: string) {
+    return apiFetch<{ services: Array<{ name: string; connected: boolean; details: string }> }>("/api/settings/services", { token });
+  },
+  getProfile(token: string) {
+    return apiFetch<{ id: number; username: string; full_name: string; role: string }>("/api/settings/profile", { token });
+  },
+  getAppInfo(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/settings/app-info", { token });
+  },
 };

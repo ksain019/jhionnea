@@ -637,3 +637,575 @@ async def get_production_dashboard(
             "total_items": novels + workbooks + cartoons + podcasts,
         },
     )
+
+
+# ── Character Bible Generator ─────────────────────────────────────────────────
+
+
+class CharacterBibleRequest(BaseModel):
+    name: str
+    role: str = "protagonist"
+    genre: str = "romance"
+    age: str | None = None
+    occupation: str | None = None
+    novel_title: str | None = None
+
+
+@router.post("/character-bible")
+async def generate_character_bible(
+    data: CharacterBibleRequest,
+    current_user: User = Depends(get_current_user),
+):
+    prompt = (
+        f"Create a complete Character Bible for a {data.genre} novel "
+        f"character named {data.name} (role: {data.role})."
+    )
+    if data.age:
+        prompt += f" Age: {data.age}."
+    if data.occupation:
+        prompt += f" Occupation: {data.occupation}."
+    if data.novel_title:
+        prompt += f' Novel: "{data.novel_title}".'
+    prompt += (
+        "\n\nReturn JSON with:\n"
+        '- "overview": 2-sentence character summary\n'
+        '- "physical": {height, build, hair, eyes, '
+        "distinguishing_features, style}\n"
+        '- "personality": {traits: [5], strengths: [3], '
+        "flaws: [3], fears: [2], desires: [2]}\n"
+        '- "backstory": 3-sentence backstory\n'
+        '- "internal_arc": {starts_as, grows_toward, '
+        "key_moment, ends_as}\n"
+        '- "external_arc": {initial_goal, obstacles: [3], '
+        "climax, resolution}\n"
+        '- "relationships": [{name, relationship, dynamic}]\n'
+        '- "dialogue_style": {voice, speech_patterns, '
+        "favorite_phrases: [3], emotional_tells: [3]}"
+    )
+
+    ai_result = await _ai_generate(prompt)
+    if ai_result:
+        try:
+            cleaned = ai_result
+            if "```json" in cleaned:
+                cleaned = cleaned.split("```json")[1].split("```")[0]
+            elif "```" in cleaned:
+                cleaned = cleaned.split("```")[1].split("```")[0]
+            return json.loads(cleaned.strip())
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+
+    return {
+        "overview": (
+            f"{data.name} is a complex {data.role} in a "
+            f"{data.genre} story. Driven by ambition yet "
+            f"haunted by the past."
+        ),
+        "physical": {
+            "height": "5'7\"",
+            "build": "Athletic",
+            "hair": "Dark curly",
+            "eyes": "Brown",
+            "distinguishing_features": "Small scar on left hand",
+            "style": "Professional by day, relaxed by night",
+        },
+        "personality": {
+            "traits": [
+                "Determined", "Compassionate", "Guarded",
+                "Witty", "Loyal",
+            ],
+            "strengths": ["Resilience", "Empathy", "Intelligence"],
+            "flaws": ["Trust issues", "Overthinking", "Stubbornness"],
+            "fears": ["Abandonment", "Failure"],
+            "desires": ["True connection", "Professional success"],
+        },
+        "backstory": (
+            f"{data.name} grew up with big dreams but faced "
+            f"early setbacks. A defining moment shaped who they "
+            f"became. Now they carry both scars and strength."
+        ),
+        "internal_arc": {
+            "starts_as": "Guarded and self-reliant",
+            "grows_toward": "Learning to trust and be vulnerable",
+            "key_moment": "Chooses love over safety",
+            "ends_as": "Open-hearted and whole",
+        },
+        "external_arc": {
+            "initial_goal": "Achieve career milestone",
+            "obstacles": [
+                "Past relationship resurfaces",
+                "Professional rivalry",
+                "Family expectations",
+            ],
+            "climax": "Must choose between career and love",
+            "resolution": "Finds a way to have both",
+        },
+        "relationships": [
+            {
+                "name": "Love Interest",
+                "relationship": "Romantic",
+                "dynamic": "Push-pull tension evolving to trust",
+            },
+            {
+                "name": "Best Friend",
+                "relationship": "Platonic",
+                "dynamic": "Loyal confidant and comic relief",
+            },
+        ],
+        "dialogue_style": {
+            "voice": "Quick-witted with underlying warmth",
+            "speech_patterns": "Short sentences when guarded, "
+            "longer when comfortable",
+            "favorite_phrases": [
+                "I've got this",
+                "That's not how this works",
+                "You don't get to decide that for me",
+            ],
+            "emotional_tells": [
+                "Crosses arms when defensive",
+                "Looks away when lying",
+                "Smiles softly when genuinely happy",
+            ],
+        },
+    }
+
+
+# ── Scene-by-Scene Plotter ─────────────────────────────────────────────────────
+
+
+class SceneRequest(BaseModel):
+    chapter_number: int
+    chapter_title: str | None = None
+    pov_character: str | None = None
+    scene_goal: str | None = None
+    genre: str = "romance"
+
+
+@router.post("/scene-plotter")
+async def plot_scene(
+    data: SceneRequest,
+    current_user: User = Depends(get_current_user),
+):
+    prompt = (
+        f"Create a detailed scene plan for Chapter {data.chapter_number} "
+        f"of a {data.genre} novel."
+    )
+    if data.chapter_title:
+        prompt += f' Title: "{data.chapter_title}".'
+    if data.pov_character:
+        prompt += f" POV: {data.pov_character}."
+    if data.scene_goal:
+        prompt += f" Goal: {data.scene_goal}."
+    prompt += (
+        "\n\nReturn JSON with:\n"
+        '- "scene_purpose": why this scene exists\n'
+        '- "pov": point of view character\n'
+        '- "goal": what the POV character wants\n'
+        '- "conflict": what stands in the way\n'
+        '- "action": what happens beat by beat (3-5 beats)\n'
+        '- "turning_point": the moment everything shifts\n'
+        '- "outcome": what changes by scene end\n'
+        '- "hook": closing line or moment for next chapter\n'
+        '- "sensory_details": [3 key sensory details]\n'
+        '- "emotional_arc": {opens_at, peaks_at, closes_at}'
+    )
+
+    ai_result = await _ai_generate(prompt)
+    if ai_result:
+        try:
+            cleaned = ai_result
+            if "```json" in cleaned:
+                cleaned = cleaned.split("```json")[1].split("```")[0]
+            elif "```" in cleaned:
+                cleaned = cleaned.split("```")[1].split("```")[0]
+            return json.loads(cleaned.strip())
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+
+    pov = data.pov_character or "Protagonist"
+    return {
+        "scene_purpose": "Advance the central relationship dynamic",
+        "pov": pov,
+        "goal": data.scene_goal or "Connect with love interest",
+        "conflict": "Internal resistance meets external pressure",
+        "action": [
+            f"{pov} arrives at the location with mixed feelings",
+            "An unexpected encounter shifts the mood",
+            "Tension builds through loaded dialogue",
+            "A vulnerable moment breaks through defenses",
+            "An interruption leaves things unresolved",
+        ],
+        "turning_point": (
+            f"{pov} realizes feelings are deeper than expected"
+        ),
+        "outcome": "Emotional walls begin to crack",
+        "hook": "A text message changes everything",
+        "sensory_details": [
+            "The scent of coffee and rain",
+            "Warm light from string lights overhead",
+            "The brush of fingers reaching for the same thing",
+        ],
+        "emotional_arc": {
+            "opens_at": "Guarded anticipation",
+            "peaks_at": "Vulnerable honesty",
+            "closes_at": "Hopeful uncertainty",
+        },
+    }
+
+
+# ── Series Bible ───────────────────────────────────────────────────────────────
+
+
+class SeriesBibleRequest(BaseModel):
+    series_title: str
+    num_books: int = 3
+    genre: str = "romance"
+    setting: str | None = None
+    theme: str | None = None
+
+
+@router.post("/series-bible")
+async def generate_series_bible(
+    data: SeriesBibleRequest,
+    current_user: User = Depends(get_current_user),
+):
+    prompt = (
+        f"Create a Series Bible for a {data.num_books}-book "
+        f'{data.genre} series titled "{data.series_title}".'
+    )
+    if data.setting:
+        prompt += f" Setting: {data.setting}."
+    if data.theme:
+        prompt += f" Theme: {data.theme}."
+    prompt += (
+        "\n\nReturn JSON with:\n"
+        '- "series_overview": 3-sentence series summary\n'
+        '- "timeline": [{book_number, timeframe, key_events}]\n'
+        '- "world_rules": [5 rules of the story world]\n'
+        '- "character_arcs": [{name, arc_across_series}]\n'
+        '- "books": [{book_number, title, protagonist, '
+        "love_interest, central_conflict, hook}]\n"
+        '- "themes": [3 recurring themes]\n'
+        '- "continuity_rules": [5 rules to maintain consistency]'
+    )
+
+    ai_result = await _ai_generate(prompt)
+    if ai_result:
+        try:
+            cleaned = ai_result
+            if "```json" in cleaned:
+                cleaned = cleaned.split("```json")[1].split("```")[0]
+            elif "```" in cleaned:
+                cleaned = cleaned.split("```")[1].split("```")[0]
+            return json.loads(cleaned.strip())
+        except (json.JSONDecodeError, KeyError, TypeError):
+            pass
+
+    setting = data.setting or "a vibrant Southern town"
+    books = []
+    for i in range(1, data.num_books + 1):
+        books.append({
+            "book_number": i,
+            "title": f"{data.series_title}: Book {i}",
+            "protagonist": f"Heroine {i}",
+            "love_interest": f"Hero {i}",
+            "central_conflict": (
+                "Past secrets vs. new beginnings"
+                if i == 1
+                else "Trust vs. ambition"
+                if i == 2
+                else "Forgiveness vs. pride"
+            ),
+            "hook": f"Sets up Book {i + 1}"
+            if i < data.num_books
+            else "Series conclusion",
+        })
+
+    return {
+        "series_overview": (
+            f"Set in {setting}, the {data.series_title} series "
+            f"follows interconnected characters finding love. "
+            f"Each book stands alone but threads weave together."
+        ),
+        "timeline": [
+            {
+                "book_number": i,
+                "timeframe": f"Year {i}",
+                "key_events": [
+                    "Meet cute", "Crisis", "Resolution",
+                ],
+            }
+            for i in range(1, data.num_books + 1)
+        ],
+        "world_rules": [
+            f"The story is set in {setting}",
+            "Characters from previous books appear",
+            "Each book has a complete HEA",
+            "Shared locations connect the stories",
+            "Time passes linearly between books",
+        ],
+        "character_arcs": [
+            {
+                "name": f"Character {i}",
+                "arc_across_series": (
+                    "Side character → protagonist → mentor"
+                ),
+            }
+            for i in range(1, data.num_books + 1)
+        ],
+        "books": books,
+        "themes": [
+            "Second chances and redemption",
+            "Community and belonging",
+            "Self-discovery through love",
+        ],
+        "continuity_rules": [
+            "Keep character ages consistent",
+            "Reference events from previous books",
+            "Maintain setting descriptions",
+            "Track relationship status of all characters",
+            "Seasonal timeline must align across books",
+        ],
+    }
+
+
+# ── Villain Motivation Generator ───────────────────────────────────────────────
+
+
+@router.get("/villain-motivations")
+async def get_villain_motivations(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "personal": [
+            "Revenge for a past betrayal by the protagonist",
+            "Jealousy over the love interest's affection",
+            "Desire to prove superiority over a rival",
+            "Protecting a secret that could ruin them",
+            "Reclaiming something they believe was stolen",
+        ],
+        "practical": [
+            "Financial gain at any cost",
+            "Career advancement by eliminating competition",
+            "Acquiring property, business, or territory",
+            "Maintaining a position of power",
+            "Covering up a crime or mistake",
+        ],
+        "emotional": [
+            "Fear of abandonment driving controlling behavior",
+            "Grief twisted into destructive obsession",
+            "Loneliness masked by manipulation",
+            "Unresolved childhood trauma projected onto others",
+            "Desperate need for validation and approval",
+        ],
+        "morally_grey": [
+            "Protecting loved ones through questionable means",
+            "Believing the ends justify the means for a good cause",
+            "Making sacrifices others won't for the greater good",
+            "Fighting a broken system with imperfect methods",
+            "Choosing between two impossible options",
+        ],
+    }
+
+
+# ── Cover Design Checklist ─────────────────────────────────────────────────────
+
+
+@router.get("/cover-checklist")
+async def get_cover_checklist(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "front_cover": {
+            "title": "Clear, readable at thumbnail size",
+            "subtitle": "Optional, smaller than title",
+            "author_name": "Consistent across all books",
+            "imagery": "Genre-appropriate, high resolution",
+            "branding": "Series logo if applicable",
+            "color_scheme": "Match genre expectations",
+        },
+        "spine": {
+            "title": "Readable at small size",
+            "author_name": "Must include",
+            "publisher_logo": "Bottom of spine",
+            "minimum_width": "Depends on page count",
+        },
+        "back_cover": {
+            "blurb": "4 paragraphs max",
+            "author_bio": "2-3 sentences with photo",
+            "barcode_area": "ISBN barcode placement",
+            "reviews_quotes": "If available",
+            "series_info": "Book number in series",
+        },
+        "technical_specs": {
+            "dpi": "300 DPI minimum for print",
+            "color_mode_print": "CMYK",
+            "color_mode_ebook": "RGB",
+            "trim_sizes": [
+                "5\" x 8\" (standard paperback)",
+                "5.5\" x 8.5\" (trade paperback)",
+                "6\" x 9\" (large trade)",
+                "8.5\" x 11\" (workbooks)",
+            ],
+            "bleed": "0.125\" on all sides for print",
+            "safe_zone": "0.25\" from trim on all sides",
+            "file_format": "PDF for KDP, PNG for ebook cover",
+        },
+        "ebook_cover": {
+            "dimensions": "2560 x 1600 pixels (ideal)",
+            "minimum": "1000 x 625 pixels",
+            "aspect_ratio": "1.6:1",
+            "file_size": "Under 50MB",
+            "format": "JPEG or TIFF",
+        },
+    }
+
+
+# ── Dialogue Style Guide ──────────────────────────────────────────────────────
+
+
+@router.get("/dialogue-guide")
+async def get_dialogue_guide(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "principles": {
+            "purposeful": (
+                "Every line of dialogue must advance plot, "
+                "reveal character, or build tension. Cut small "
+                "talk unless it serves a purpose."
+            ),
+            "natural": (
+                "Use contractions, interruptions, and incomplete "
+                "sentences. Real people don't speak in perfect "
+                "paragraphs."
+            ),
+            "emotional": (
+                "Dialogue should reflect the emotional state of "
+                "the character. Stress changes speech patterns."
+            ),
+            "character_specific": (
+                "Each character should have a distinct voice. "
+                "Readers should be able to tell who's speaking "
+                "without tags."
+            ),
+            "tension_building": (
+                "Use subtext — what characters don't say is as "
+                "important as what they do. Let readers read "
+                "between the lines."
+            ),
+        },
+        "dialogue_tags": {
+            "preferred": ["said", "asked", "whispered", "murmured"],
+            "use_sparingly": [
+                "exclaimed", "declared", "announced",
+            ],
+            "avoid": [
+                "ejaculated", "opined", "stated",
+            ],
+            "tip": (
+                "Use action beats instead of tags when possible: "
+                "'She crossed her arms. \"I don't think so.\"'"
+            ),
+        },
+        "formatting_rules": [
+            "New speaker = new paragraph",
+            "Internal thoughts in italics, no quotes",
+            "Interrupted speech ends with em dash (—)",
+            "Trailing off ends with ellipsis (...)",
+            "Keep monologues under 5 lines",
+        ],
+        "common_mistakes": [
+            "Info-dumping through dialogue",
+            "Characters explaining things they both know",
+            "All characters sounding the same",
+            "Overusing exclamation marks",
+            "Phonetic dialect spelling (use word choice instead)",
+        ],
+    }
+
+
+# ── Novel Pacing Guide ────────────────────────────────────────────────────────
+
+
+@router.get("/pacing-guide")
+async def get_pacing_guide(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "structure": {
+            "act_1": {
+                "percentage": 25,
+                "chapters": "1-5",
+                "purpose": "Setup, introduce characters, "
+                "establish stakes",
+                "beats": [
+                    "Opening Image (Ch 1)",
+                    "Meet Cute (Ch 2)",
+                    "Resistance (Ch 3)",
+                    "Forced Proximity (Ch 4)",
+                    "Growing Attraction (Ch 5)",
+                ],
+                "pacing": "Moderate — build intrigue",
+            },
+            "act_2": {
+                "percentage": 50,
+                "chapters": "6-15",
+                "purpose": "Deepen conflict, raise stakes, "
+                "test the relationship",
+                "beats": [
+                    "First Kiss (Ch 6)",
+                    "Fun & Games (Ch 7-8)",
+                    "Midpoint Shift (Ch 10)",
+                    "Raising Stakes (Ch 11-12)",
+                    "All Is Lost (Ch 14)",
+                    "Dark Night (Ch 15)",
+                ],
+                "pacing": "Alternating fast/slow — "
+                "build and release tension",
+            },
+            "act_3": {
+                "percentage": 25,
+                "chapters": "16-20",
+                "purpose": "Climax, resolution, HEA",
+                "beats": [
+                    "Realization (Ch 17)",
+                    "Grand Gesture (Ch 18)",
+                    "Resolution (Ch 19)",
+                    "Final Image (Ch 20)",
+                ],
+                "pacing": "Fast — momentum to conclusion",
+            },
+        },
+        "word_count_targets": {
+            "romance_novel": {
+                "total": "60,000-80,000 words",
+                "per_chapter": "3,000-4,000 words",
+                "act_1": "15,000-20,000 words",
+                "act_2": "30,000-40,000 words",
+                "act_3": "15,000-20,000 words",
+            },
+        },
+        "tension_curve": [
+            {"chapter": 1, "tension": 30, "label": "Opening hook"},
+            {"chapter": 3, "tension": 40, "label": "Resistance"},
+            {"chapter": 5, "tension": 50, "label": "Attraction"},
+            {"chapter": 6, "tension": 60, "label": "First kiss"},
+            {"chapter": 8, "tension": 45, "label": "Breathing room"},
+            {"chapter": 10, "tension": 65, "label": "Midpoint shift"},
+            {"chapter": 12, "tension": 55, "label": "Vulnerability"},
+            {"chapter": 14, "tension": 85, "label": "All is lost"},
+            {"chapter": 15, "tension": 90, "label": "Dark night"},
+            {"chapter": 17, "tension": 70, "label": "Realization"},
+            {"chapter": 18, "tension": 80, "label": "Grand gesture"},
+            {"chapter": 20, "tension": 95, "label": "HEA resolution"},
+        ],
+        "scene_pacing_tips": [
+            "Short sentences = fast pacing (action, tension)",
+            "Long sentences = slow pacing (introspection)",
+            "White space on page = breathing room",
+            "Dialogue-heavy scenes feel faster",
+            "Description-heavy scenes feel slower",
+            "End chapters on cliffhangers or questions",
+        ],
+    }
