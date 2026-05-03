@@ -15,6 +15,7 @@ import app.models.teaching  # noqa: F401
 import app.models.writing  # noqa: F401
 from app.config import settings
 from app.database import async_session, engine
+from app.middleware.security import SecurityMiddleware
 from app.models.base import Base
 from app.models.user import User
 from app.routers import (
@@ -29,6 +30,7 @@ from app.routers import (
     email_mgmt,
     generators,
     gmail,
+    system,
     teaching,
     writing,
 )
@@ -82,6 +84,7 @@ app.add_middleware(
     allow_headers=["*"],
     allow_origin_regex=r"https://.*\.devinapps\.com",
 )
+app.add_middleware(SecurityMiddleware)
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
@@ -97,6 +100,7 @@ app.include_router(email_mgmt.router)
 app.include_router(gmail.router)
 app.include_router(generators.router)
 app.include_router(settings_router.router)
+app.include_router(system.router)
 
 
 @app.get("/api/health")

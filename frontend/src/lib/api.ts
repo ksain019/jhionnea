@@ -934,4 +934,33 @@ export const api = {
   getAppInfo(token: string) {
     return apiFetch<Record<string, unknown>>("/api/settings/app-info", { token });
   },
+
+  // System management (boss only)
+  getSystemHealth(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/system/health-check", { token });
+  },
+  getAuditLog(token: string, limit = 100) {
+    return apiFetch<{ entries: Array<Record<string, unknown>> }>(`/api/system/audit-log?limit=${limit}`, { token });
+  },
+  getPerformance(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/system/performance", { token });
+  },
+  getErrors(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/system/errors", { token });
+  },
+  triggerBackup(token: string) {
+    return apiFetch<{ status: string; backup_path?: string; detail?: string }>("/api/system/backup", { token, method: "POST" });
+  },
+  getBackups(token: string) {
+    return apiFetch<{ backups: Array<{ filename: string; size_mb: number; created: string }> }>("/api/system/backups", { token });
+  },
+  getScheduledTasks(token: string) {
+    return apiFetch<{ tasks: Array<Record<string, unknown>> }>("/api/system/scheduled-tasks", { token });
+  },
+  getTaskLog(token: string, limit = 50) {
+    return apiFetch<{ entries: Array<Record<string, unknown>> }>(`/api/system/task-log?limit=${limit}`, { token });
+  },
+  getUptime(token: string) {
+    return apiFetch<{ uptime_seconds: number; uptime_formatted: string; started_at: string }>("/api/system/uptime", { token });
+  },
 };
