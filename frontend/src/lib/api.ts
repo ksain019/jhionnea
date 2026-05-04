@@ -17,6 +17,13 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
 
   const res = await fetch(`${API_BASE}${path}`, { headers, ...rest });
 
+  if (res.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("jhionnea_token");
+    localStorage.removeItem("jhionnea_user");
+    window.location.href = "/login";
+    throw new Error("Session expired");
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || `API error ${res.status}`);
