@@ -50,6 +50,11 @@ class SportsEventCreate(BaseModel):
     event_name: str
     teams: str
     analysis: str | None = None
+    odds_team1: str | None = None
+    odds_team2: str | None = None
+    odds_draw: str | None = None
+    prediction: str | None = None
+    confidence: str | None = None
     event_date: datetime
 
 
@@ -59,7 +64,36 @@ class SportsEventResponse(BaseModel):
     event_name: str
     teams: str
     analysis: str | None
+    odds_team1: str | None
+    odds_team2: str | None
+    odds_draw: str | None
+    prediction: str | None
+    confidence: str | None
+    result: str | None
     event_date: datetime
+    created_by: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ParlayCreate(BaseModel):
+    name: str
+    legs: list[str]
+    total_odds: str | None = None
+    stake: float | None = None
+    potential_payout: float | None = None
+
+
+class ParlayResponse(BaseModel):
+    id: int
+    name: str
+    legs: str
+    total_odds: str | None
+    stake: float | None
+    potential_payout: float | None
+    status: str
+    result_notes: str | None
     created_by: int
     created_at: datetime
 

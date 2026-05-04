@@ -369,6 +369,112 @@ async def analyze_student(
     )
 
 
+# ── Student Progress Reports ──────────────────────────────────────────────────
+
+@router.get("/students/{student_id}/progress-report")
+async def get_progress_report(
+    student_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Student).where(Student.id == student_id))
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    assignments_result = await db.execute(
+        select(Assignment).where(Assignment.student_id == student_id)
+    )
+    assignments = assignments_result.scalars().all()
+
+    attendance_result = await db.execute(
+        select(AttendanceRecord).where(AttendanceRecord.student_id == student_id)
+    )
+    records = attendance_result.scalars().all()
+
+    graded = [a for a in assignments if a.status == "graded"]
+    scores = [a.score for a in graded if a.score is not None]
+    avg_score = round(sum(scores) / len(scores), 1) if scores else None
+
+    total_days = len(records)
+    present_days = len([r for r in records if r.status in ("present", "late")])
+    absent_days = len([r for r in records if r.status == "absent"])
+    late_days = len([r for r in records if r.status == "late"])
+    attendance_pct = round((present_days / total_days) * 100, 1) if total_days else None
+
+    grade_dist: dict[str, int] = {}
+    for a in graded:
+        if a.grade:
+            grade_dist[a.grade] = grade_dist.get(a.grade, 0) + 1
+
+    if avg_score and avg_score >= 90:
+        performance_level = "Exceeding Expectations"
+    elif avg_score and avg_score >= 80:
+        performance_level = "Meeting Expectations"
+    elif avg_score and avg_score >= 70:
+        performance_level = "Approaching Expectations"
+    elif avg_score is not None:
+        performance_level = "Needs Improvement"
+    else:
+        performance_level = "Not Yet Assessed"
+
+    recommendations = []
+    if avg_score and avg_score < 70:
+        recommendations.append("Consider additional tutoring or support sessions")
+        recommendations.append("Provide differentiated assignments at a lower complexity level")
+    elif avg_score and avg_score < 80:
+        recommendations.append("Encourage consistent practice and review of difficult concepts")
+    elif avg_score and avg_score >= 90:
+        recommendations.append("Provide enrichment activities and advanced challenges")
+        recommendations.append("Consider peer tutoring opportunities")
+
+    if attendance_pct and attendance_pct < 90:
+        recommendations.append("Address attendance concerns — frequent absences affect learning")
+    if late_days > 2:
+        recommendations.append("Discuss punctuality and time management strategies")
+
+    if not recommendations:
+        recommendations.append("Continue current learning trajectory")
+
+    recent_assignments = [
+        {
+            "title": a.title,
+            "grade": a.grade,
+            "score": a.score,
+            "status": a.status,
+            "feedback": a.feedback,
+            "date": a.created_at.isoformat() if a.created_at else None,
+        }
+        for a in sorted(assignments, key=lambda x: x.created_at or x.id, reverse=True)[:10]
+    ]
+
+    return {
+        "student": {
+            "id": student.id,
+            "name": student.name,
+            "email": student.email,
+            "grade_level": student.grade_level,
+        },
+        "academic_summary": {
+            "total_assignments": len(assignments),
+            "graded_assignments": len(graded),
+            "average_score": avg_score,
+            "grade_distribution": grade_dist,
+            "performance_level": performance_level,
+        },
+        "attendance_summary": {
+            "total_days": total_days,
+            "present": present_days,
+            "absent": absent_days,
+            "late": late_days,
+            "attendance_percentage": attendance_pct,
+        },
+        "recommendations": recommendations,
+        "recent_assignments": recent_assignments,
+        "report_date": __import__("datetime").datetime.now().isoformat(),
+    }
+
+
 # ── Helper functions for demo lesson generation ────────────────────────────────
 
 def _generate_lesson_plan(subject: str, grade: str, title: str, duration: int) -> str:

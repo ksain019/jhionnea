@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/auth";
 import { api } from "@/lib/api";
-import type { Curriculum, Assignment, Student, AttendanceRecord, DemoLesson, StudentAnalysis } from "@/lib/api";
+import type { Curriculum, Assignment, Student, AttendanceRecord, DemoLesson, StudentAnalysis, ProgressReport } from "@/lib/api";
 import Header from "@/components/Header";
 import { useSidebar } from "../layout";
 
-type Tab = "overview" | "students" | "assignments" | "attendance" | "demo-lessons";
+type Tab = "overview" | "students" | "assignments" | "attendance" | "demo-lessons" | "progress-reports";
 
 export default function TeachingPage() {
   const { toggleSidebar } = useSidebar();
@@ -65,6 +65,11 @@ export default function TeachingPage() {
 
   // Expanded demo lesson
   const [expandedLesson, setExpandedLesson] = useState<DemoLesson | null>(null);
+
+  // Progress Reports
+  const [selectedReportStudent, setSelectedReportStudent] = useState<number | null>(null);
+  const [progressReport, setProgressReport] = useState<ProgressReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     const token = getToken();
@@ -166,6 +171,7 @@ export default function TeachingPage() {
     { key: "assignments", label: "Grading" },
     { key: "attendance", label: "Attendance" },
     { key: "demo-lessons", label: "Sick Day Lessons" },
+    { key: "progress-reports", label: "Progress Reports" },
   ];
 
   const inputCls = "px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-900";
@@ -621,6 +627,138 @@ export default function TeachingPage() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Progress Reports Tab */}
+        {tab === "progress-reports" && (
+          <div className="space-y-6">
+            <div className="bg-card-bg rounded-xl border border-card-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Student Progress Reports</h3>
+              <p className="text-sm text-muted mb-4">Generate comprehensive reports for parents with academic summary, attendance, and recommendations.</p>
+
+              {students.length === 0 ? (
+                <p className="text-muted text-sm">Add students first to generate progress reports.</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <select
+                      value={selectedReportStudent ?? ""}
+                      onChange={(e) => setSelectedReportStudent(e.target.value ? Number(e.target.value) : null)}
+                      className="px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-900"
+                    >
+                      <option value="">Select a student</option>
+                      {students.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.grade_level})</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={async () => {
+                        if (!selectedReportStudent) return;
+                        const token = getToken();
+                        if (!token) return;
+                        setReportLoading(true);
+                        try {
+                          const report = await api.getProgressReport(token, selectedReportStudent);
+                          setProgressReport(report);
+                        } catch {
+                          alert("Failed to generate report");
+                        }
+                        setReportLoading(false);
+                      }}
+                      disabled={!selectedReportStudent || reportLoading}
+                      className="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark disabled:opacity-50"
+                    >
+                      {reportLoading ? "Generating..." : "Generate Report"}
+                    </button>
+                  </div>
+
+                  {progressReport && (
+                    <div className="border rounded-xl p-6 space-y-6 bg-white">
+                      <div className="text-center border-b pb-4">
+                        <h2 className="text-xl font-bold text-foreground">Student Progress Report</h2>
+                        <p className="text-sm text-muted">{progressReport.student.name} &middot; Grade {progressReport.student.grade_level}</p>
+                        <p className="text-xs text-muted mt-1">Generated: {new Date(progressReport.report_date).toLocaleDateString()}</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <p className="text-xs text-blue-600 font-medium">Performance Level</p>
+                          <p className="text-lg font-bold text-blue-800">{progressReport.academic_summary.performance_level}</p>
+                        </div>
+                        <div className="bg-green-50 rounded-lg p-4">
+                          <p className="text-xs text-green-600 font-medium">Average Score</p>
+                          <p className="text-lg font-bold text-green-800">{progressReport.academic_summary.average_score ?? "N/A"}%</p>
+                        </div>
+                        <div className="bg-purple-50 rounded-lg p-4">
+                          <p className="text-xs text-purple-600 font-medium">Attendance</p>
+                          <p className="text-lg font-bold text-purple-800">{progressReport.attendance_summary.attendance_percentage ?? "N/A"}%</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h4 className="font-medium text-foreground mb-2">Academic Summary</h4>
+                          <div className="text-sm space-y-1 text-muted">
+                            <p>Total Assignments: {progressReport.academic_summary.total_assignments}</p>
+                            <p>Graded: {progressReport.academic_summary.graded_assignments}</p>
+                            {Object.entries(progressReport.academic_summary.grade_distribution).map(([grade, count]) => (
+                              <p key={grade}>Grade {grade}: {count}</p>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-foreground mb-2">Attendance Details</h4>
+                          <div className="text-sm space-y-1 text-muted">
+                            <p>Days Tracked: {progressReport.attendance_summary.total_days}</p>
+                            <p>Present: {progressReport.attendance_summary.present}</p>
+                            <p>Absent: {progressReport.attendance_summary.absent}</p>
+                            <p>Late: {progressReport.attendance_summary.late}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-medium text-foreground mb-2">Recommendations</h4>
+                        <ul className="list-disc list-inside text-sm text-muted space-y-1">
+                          {progressReport.recommendations.map((rec, i) => (
+                            <li key={i}>{rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {progressReport.recent_assignments.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-foreground mb-2">Recent Assignments</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="text-left text-muted border-b">
+                                  <th className="pb-2 font-medium">Title</th>
+                                  <th className="pb-2 font-medium">Grade</th>
+                                  <th className="pb-2 font-medium">Score</th>
+                                  <th className="pb-2 font-medium">Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {progressReport.recent_assignments.map((a, i) => (
+                                  <tr key={i} className="border-b border-gray-100">
+                                    <td className="py-2">{a.title}</td>
+                                    <td className="py-2">{a.grade || "—"}</td>
+                                    <td className="py-2">{a.score ?? "—"}</td>
+                                    <td className="py-2 capitalize">{a.status}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>

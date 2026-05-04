@@ -1,7 +1,11 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.content import CalendarEvent, ContentDraft, PodcastEpisode, YouTubeProject
 from app.models.user import User
@@ -16,6 +20,8 @@ from app.schemas.content import (
     YouTubeProjectResponse,
 )
 from app.utils.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/content", tags=["content"])
 
@@ -197,6 +203,244 @@ async def generate_podcast_script(
     await db.commit()
     await db.refresh(episode)
     return episode
+
+
+@router.post("/podcast/{episode_id}/generate-audio")
+async def generate_podcast_audio(
+    episode_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not settings.openai_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="OpenAI API key not configured. Set JHIONNEA_OPENAI_API_KEY to enable TTS.",
+        )
+
+    result = await db.execute(
+        select(PodcastEpisode).where(PodcastEpisode.id == episode_id)
+    )
+    episode = result.scalar_one_or_none()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Podcast episode not found")
+    if not episode.script:
+        raise HTTPException(status_code=400, detail="Generate a script first before creating audio")
+
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        tts_input = episode.script[:4096]
+        response = await client.audio.speech.create(
+            model=settings.openai_tts_model,
+            voice=settings.openai_tts_voice,
+            input=tts_input,
+        )
+        episode.status = "audio_ready"
+        await db.commit()
+
+        async def audio_stream():
+            async for chunk in response.response.aiter_bytes():
+                yield chunk
+
+        return StreamingResponse(
+            audio_stream(),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f'attachment; filename="podcast-{episode.id}.mp3"'
+            },
+        )
+    except Exception as e:
+        logger.error("TTS generation failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"Audio generation failed: {e}")
+
+
+@router.get("/tts-status")
+async def tts_status(current_user: User = Depends(get_current_user)):
+    return {
+        "enabled": bool(settings.openai_api_key or settings.elevenlabs_api_key),
+        "provider": "elevenlabs" if settings.elevenlabs_api_key else "openai",
+        "model": settings.openai_tts_model,
+        "voice": settings.openai_tts_voice,
+        "elevenlabs_available": bool(settings.elevenlabs_api_key),
+    }
+
+
+@router.post("/podcast/{episode_id}/generate-audio-elevenlabs")
+async def generate_podcast_audio_elevenlabs(
+    episode_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not settings.elevenlabs_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="ElevenLabs API key not configured. "
+            "Set JHIONNEA_ELEVENLABS_API_KEY to enable.",
+        )
+
+    result = await db.execute(
+        select(PodcastEpisode).where(PodcastEpisode.id == episode_id)
+    )
+    episode = result.scalar_one_or_none()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    if not episode.script:
+        raise HTTPException(
+            status_code=400,
+            detail="Generate a script first",
+        )
+
+    import httpx
+
+    tts_input = episode.script[:5000]
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"https://api.elevenlabs.io/v1/text-to-speech/{settings.elevenlabs_voice_id}",
+            headers={
+                "xi-api-key": settings.elevenlabs_api_key,
+                "Content-Type": "application/json",
+            },
+            json={
+                "text": tts_input,
+                "model_id": "eleven_monolingual_v1",
+            },
+            timeout=120,
+        )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=500,
+                detail=f"ElevenLabs error: {resp.text[:200]}",
+            )
+
+        episode.status = "audio_ready"
+        await db.commit()
+
+        return StreamingResponse(
+            iter([resp.content]),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="podcast-{episode.id}.mp3"'
+                )
+            },
+        )
+
+
+# ── Social Media Scheduler ─────────────────────────────────────────────────────
+
+@router.get("/social-posts")
+async def list_social_posts(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.models.content import SocialPost
+
+    result = await db.execute(
+        select(SocialPost).order_by(SocialPost.scheduled_date.desc())
+    )
+    posts = result.scalars().all()
+    return [
+        {
+            "id": p.id,
+            "platform": p.platform,
+            "content": p.content,
+            "media_url": p.media_url,
+            "scheduled_date": p.scheduled_date.isoformat() if p.scheduled_date else None,
+            "status": p.status,
+            "post_url": p.post_url,
+            "created_at": p.created_at.isoformat() if p.created_at else None,
+        }
+        for p in posts
+    ]
+
+
+@router.post("/social-posts", status_code=201)
+async def create_social_post(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from datetime import datetime
+
+    from app.models.content import SocialPost
+
+    scheduled = None
+    if data.get("scheduled_date"):
+        scheduled = datetime.fromisoformat(data["scheduled_date"].replace("Z", "+00:00"))
+
+    post = SocialPost(
+        platform=data.get("platform", ""),
+        content=data.get("content", ""),
+        media_url=data.get("media_url"),
+        scheduled_date=scheduled,
+        status="scheduled" if scheduled else "draft",
+        created_by=current_user.id,
+    )
+    db.add(post)
+    await db.commit()
+    await db.refresh(post)
+    return {
+        "id": post.id,
+        "platform": post.platform,
+        "content": post.content,
+        "media_url": post.media_url,
+        "scheduled_date": post.scheduled_date.isoformat() if post.scheduled_date else None,
+        "status": post.status,
+        "created_at": post.created_at.isoformat() if post.created_at else None,
+    }
+
+
+# ── Medium Publishing ──────────────────────────────────────────────────────────
+
+@router.post("/medium/publish")
+async def publish_to_medium(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+):
+    if not settings.medium_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Medium token not configured. Set JHIONNEA_MEDIUM_TOKEN.",
+        )
+
+    import httpx
+
+    async with httpx.AsyncClient() as client:
+        me_resp = await client.get(
+            "https://api.medium.com/v1/me",
+            headers={"Authorization": f"Bearer {settings.medium_token}"},
+        )
+        if me_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Invalid Medium token")
+        user_id = me_resp.json()["data"]["id"]
+
+        post_data = {
+            "title": data.get("title", "Untitled"),
+            "contentFormat": data.get("format", "markdown"),
+            "content": data.get("content", ""),
+            "publishStatus": data.get("status", "draft"),
+            "tags": data.get("tags", []),
+        }
+        pub_resp = await client.post(
+            f"https://api.medium.com/v1/users/{user_id}/posts",
+            headers={
+                "Authorization": f"Bearer {settings.medium_token}",
+                "Content-Type": "application/json",
+            },
+            json=post_data,
+        )
+        if pub_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=pub_resp.status_code,
+                detail=f"Medium API error: {pub_resp.text}",
+            )
+        return pub_resp.json()
+
+
+@router.get("/medium/status")
+async def medium_status(current_user: User = Depends(get_current_user)):
+    return {"enabled": bool(settings.medium_token)}
 
 
 # ── Script Generation Helpers ──────────────────────────────────────────────────

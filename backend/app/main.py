@@ -1,8 +1,13 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 # Import all models so they are registered with Base.metadata
 import app.models.analytics  # noqa: F401
@@ -15,6 +20,7 @@ import app.models.teaching  # noqa: F401
 import app.models.writing  # noqa: F401
 from app.config import settings
 from app.database import async_session, engine
+from app.middleware.security import SecurityMiddleware
 from app.models.base import Base
 from app.models.user import User
 from app.routers import (
@@ -22,13 +28,24 @@ from app.routers import (
     auth,
     browser,
     business,
+    calendar,
     chat,
     content,
     dashboard,
     documents,
     email_mgmt,
+    exports,
+    files,
+    generators,
+    gmail,
+    notifications,
+    search,
+    system,
     teaching,
     writing,
+)
+from app.routers import (
+    settings as settings_router,
 )
 from app.utils.auth import hash_password
 
@@ -53,12 +70,26 @@ async def seed_users():
             await session.commit()
 
 
+async def self_ping():
+    """Keep the Fly.io machine alive by pinging ourselves every 4 minutes."""
+    await asyncio.sleep(30)
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                await client.get("http://localhost:8000/api/health", timeout=10)
+            except Exception:
+                pass
+            await asyncio.sleep(240)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await seed_users()
+    ping_task = asyncio.create_task(self_ping())
     yield
+    ping_task.cancel()
 
 
 app = FastAPI(
@@ -77,6 +108,7 @@ app.add_middleware(
     allow_headers=["*"],
     allow_origin_regex=r"https://.*\.devinapps\.com",
 )
+app.add_middleware(SecurityMiddleware)
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
@@ -89,6 +121,15 @@ app.include_router(chat.router)
 app.include_router(browser.router)
 app.include_router(documents.router)
 app.include_router(email_mgmt.router)
+app.include_router(gmail.router)
+app.include_router(generators.router)
+app.include_router(settings_router.router)
+app.include_router(system.router)
+app.include_router(notifications.router)
+app.include_router(exports.router)
+app.include_router(calendar.router)
+app.include_router(search.router)
+app.include_router(files.router)
 
 
 @app.get("/api/health")

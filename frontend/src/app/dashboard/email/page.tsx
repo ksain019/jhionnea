@@ -7,8 +7,16 @@ import type { EmailRule, EmailLog } from "@/lib/api";
 import Header from "@/components/Header";
 import { useSidebar } from "../layout";
 
-type Tab = "rules" | "analyze" | "logs";
+type Tab = "rules" | "analyze" | "logs" | "gmail";
 
+interface GmailEmail {
+  id: string;
+  from: string;
+  subject: string;
+  date: string;
+  snippet: string;
+  labels: string[];
+}
 
 interface AnalysisResult {
   from: string;
@@ -24,6 +32,12 @@ export default function EmailPage() {
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [showRuleForm, setShowRuleForm] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
+
+  // Gmail state
+  const [gmailStatus, setGmailStatus] = useState<{ configured: boolean; connected: boolean }>({ configured: false, connected: false });
+  const [gmailEmails, setGmailEmails] = useState<GmailEmail[]>([]);
+  const [gmailLoading, setGmailLoading] = useState(false);
+  const [cleanResult, setCleanResult] = useState<{ deleted: number; kept: number; total: number } | null>(null);
 
   // Rule form
   const [ruleName, setRuleName] = useState("");
@@ -42,7 +56,49 @@ export default function EmailPage() {
     if (!token) return;
     api.getEmailRules(token).then(setRules);
     api.getEmailLogs(token).then(setLogs);
+    api.getGmailStatus(token).then(setGmailStatus).catch(() => {});
   }, []);
+
+  async function handleConnectGmail() {
+    const token = getToken();
+    if (!token) return;
+    const { auth_url } = await api.getGmailAuthUrl(token);
+    window.open(auth_url, "_blank");
+  }
+
+  async function handleLoadGmail() {
+    const token = getToken();
+    if (!token) return;
+    setGmailLoading(true);
+    try {
+      const data = await api.getGmailInbox(token);
+      setGmailEmails(data.emails);
+    } catch {
+      // not connected
+    }
+    setGmailLoading(false);
+  }
+
+  async function handleDeleteGmail(messageId: string) {
+    const token = getToken();
+    if (!token) return;
+    await api.deleteGmailMessage(token, messageId);
+    setGmailEmails(gmailEmails.filter((e) => e.id !== messageId));
+  }
+
+  async function handleAutoClean() {
+    const token = getToken();
+    if (!token) return;
+    setGmailLoading(true);
+    try {
+      const result = await api.autoCleanGmail(token);
+      setCleanResult(result);
+      await handleLoadGmail();
+    } catch {
+      // not connected
+    }
+    setGmailLoading(false);
+  }
 
   async function handleCreateRule(e: React.FormEvent) {
     e.preventDefault();
@@ -94,6 +150,7 @@ export default function EmailPage() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: "gmail", label: "Gmail" },
     { key: "rules", label: "Rules" },
     { key: "analyze", label: "Analyze Emails" },
     { key: "logs", label: "History" },
@@ -143,6 +200,88 @@ export default function EmailPage() {
             <p className="text-2xl font-bold text-red-600">{logs.filter((l) => l.action_taken === "deleted" || l.action_taken === "delete").length}</p>
           </div>
         </div>
+
+        {/* Gmail Tab */}
+        {tab === "gmail" && (
+          <div className="space-y-6">
+            <div className="bg-card-bg rounded-xl border border-card-border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Gmail Integration</h3>
+                  <p className="text-sm text-muted mt-1">
+                    {gmailStatus.configured
+                      ? gmailStatus.connected
+                        ? "Connected — Jhionnea can read and manage your Gmail"
+                        : "Gmail API configured. Click Connect to authorize."
+                      : "Gmail API not configured yet. Set up Google OAuth credentials first."}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {gmailStatus.configured && !gmailStatus.connected && (
+                    <button onClick={handleConnectGmail} className={btnPrimary}>
+                      Connect Gmail
+                    </button>
+                  )}
+                  {gmailStatus.connected && (
+                    <>
+                      <button onClick={handleLoadGmail} disabled={gmailLoading} className={btnPrimary}>
+                        {gmailLoading ? "Loading..." : "Refresh Inbox"}
+                      </button>
+                      <button onClick={handleAutoClean} disabled={gmailLoading} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">
+                        Auto-Clean
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {cleanResult && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm font-medium text-green-800">
+                    Auto-clean complete: {cleanResult.deleted} deleted, {cleanResult.kept} kept out of {cleanResult.total} emails
+                  </p>
+                </div>
+              )}
+
+              {!gmailStatus.configured && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800 font-medium mb-2">Setup Required:</p>
+                  <ol className="text-sm text-yellow-700 list-decimal list-inside space-y-1">
+                    <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a></li>
+                    <li>Create a project and enable the Gmail API</li>
+                    <li>Create OAuth credentials (Web application)</li>
+                    <li>Set the redirect URI and provide Client ID + Secret</li>
+                  </ol>
+                </div>
+              )}
+
+              {gmailEmails.length > 0 && (
+                <div className="space-y-2">
+                  {gmailEmails.map((email) => (
+                    <div key={email.id} className="flex items-start justify-between p-3 border rounded-lg hover:bg-gray-50">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">{email.subject}</p>
+                          {email.labels.includes("IMPORTANT") && (
+                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Important</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted truncate">{email.from}</p>
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-1">{email.snippet}</p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4 shrink-0">
+                        <span className="text-xs text-muted">{email.date}</span>
+                        <button onClick={() => handleDeleteGmail(email.id)} className="text-xs text-red-600 hover:underline">
+                          Trash
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Rules Tab */}
         {tab === "rules" && (

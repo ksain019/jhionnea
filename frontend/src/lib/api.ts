@@ -17,6 +17,13 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
 
   const res = await fetch(`${API_BASE}${path}`, { headers, ...rest });
 
+  if (res.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("jhionnea_token");
+    localStorage.removeItem("jhionnea_user");
+    window.location.href = "/login";
+    throw new Error("Session expired");
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || `API error ${res.status}`);
@@ -298,6 +305,139 @@ export interface ChatReply {
   assistant_message: ChatMessage;
   browser_screenshot?: string | null;
   browser_url?: string | null;
+}
+
+export interface SportsEvent {
+  id: number;
+  sport: string;
+  event_name: string;
+  teams: string;
+  analysis: string | null;
+  odds_team1: string | null;
+  odds_team2: string | null;
+  odds_draw: string | null;
+  prediction: string | null;
+  confidence: string | null;
+  result: string | null;
+  event_date: string;
+  created_by: number;
+  created_at: string;
+}
+
+export interface Parlay {
+  id: number;
+  name: string;
+  legs: string;
+  total_odds: string | null;
+  stake: number | null;
+  potential_payout: number | null;
+  status: string;
+  result_notes: string | null;
+  created_by: number;
+  created_at: string;
+}
+
+export interface SocialPost {
+  id: number;
+  platform: string;
+  content: string;
+  media_url: string | null;
+  scheduled_date: string | null;
+  status: string;
+  post_url: string | null;
+  created_at: string | null;
+}
+
+export interface ProgressReport {
+  student: {
+    id: number;
+    name: string;
+    email: string | null;
+    grade_level: string | null;
+  };
+  academic_summary: {
+    total_assignments: number;
+    graded_assignments: number;
+    average_score: number | null;
+    grade_distribution: Record<string, number>;
+    performance_level: string;
+  };
+  attendance_summary: {
+    total_days: number;
+    present: number;
+    absent: number;
+    late: number;
+    attendance_percentage: number | null;
+  };
+  recommendations: string[];
+  recent_assignments: Array<{
+    title: string;
+    grade: string | null;
+    score: number | null;
+    status: string;
+    feedback: string | null;
+    date: string | null;
+  }>;
+  report_date: string;
+}
+
+export interface MetadataResult {
+  title_options: string[];
+  subtitle_options: string[];
+  keywords: string[];
+  categories: string[];
+  blurb: string;
+}
+
+export interface OutlineResult {
+  beat_sheet: Array<{ beat: string; chapter: number; description: string }>;
+  chapters: Array<{
+    chapter_number: number;
+    title: string;
+    summary: string;
+    pov: string;
+    conflict: string;
+    hook: string;
+  }>;
+}
+
+export interface WorkbookResult {
+  title: string;
+  grade_level: string;
+  subject: string;
+  units: Array<{
+    unit_number: number;
+    title: string;
+    topic: string;
+    worksheets: Array<{
+      worksheet_number: number;
+      title: string;
+      type: string;
+      description: string;
+    }>;
+    exit_ticket: { title: string; questions: number };
+  }>;
+  answer_key_summary: string;
+}
+
+export interface ProductionDashboard {
+  daily: {
+    cartoons: { done: number; target: number };
+    podcasts: { done: number; target: number };
+    shorts: { done: number; target: number };
+    total_items: number;
+  };
+  weekly: {
+    episodes: { done: number; target: number };
+    total_items: number;
+  };
+  monthly: {
+    novels: { done: number; target: number };
+    workbooks: { done: number; target: number };
+    notebooks: { done: number; target: number };
+    episodes: { done: number; target: number };
+    total_items: number;
+  };
 }
 
 export interface BrowserActionRequest {
@@ -602,8 +742,39 @@ export const api = {
   getWatchlist(token: string) {
     return apiFetch<WatchlistItem[]>("/api/analytics/watchlist", { token });
   },
+  addToWatchlist(token: string, data: { symbol: string; name: string; asset_type?: string; notes?: string }) {
+    return apiFetch<WatchlistItem>("/api/analytics/watchlist", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
   getTrades(token: string) {
     return apiFetch<TradeLogEntry[]>("/api/analytics/trades", { token });
+  },
+  createSportsEvent(token: string, data: {
+    sport: string; event_name: string; teams: string; event_date: string;
+    odds_team1?: string; odds_team2?: string; odds_draw?: string;
+    prediction?: string; confidence?: string; analysis?: string;
+  }) {
+    return apiFetch<SportsEvent>("/api/analytics/sports", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getSportsEvents(token: string) {
+    return apiFetch<SportsEvent[]>("/api/analytics/sports", { token });
+  },
+  getParlays(token: string) {
+    return apiFetch<Parlay[]>("/api/analytics/parlays", { token });
+  },
+  createParlay(token: string, data: { name: string; legs: string[]; total_odds?: string; stake?: number; potential_payout?: number }) {
+    return apiFetch<Parlay>("/api/analytics/parlays", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
   },
 
   // Chat
@@ -618,6 +789,71 @@ export const api = {
     });
   },
 
+  // Social Media
+  getSocialPosts(token: string) {
+    return apiFetch<SocialPost[]>("/api/content/social-posts", { token });
+  },
+  createSocialPost(token: string, data: { platform: string; content: string; media_url?: string; scheduled_date?: string }) {
+    return apiFetch<SocialPost>("/api/content/social-posts", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+
+  // TTS
+  getTtsStatus(token: string) {
+    return apiFetch<{ enabled: boolean; model: string; voice: string }>("/api/content/tts-status", { token });
+  },
+  generatePodcastAudio(token: string, episodeId: number) {
+    return fetch(`${API_BASE}/api/content/podcast/${episodeId}/generate-audio`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  // Gmail
+  getGmailStatus(token: string) {
+    return apiFetch<{ configured: boolean; connected: boolean }>("/api/gmail/status", { token });
+  },
+  getGmailAuthUrl(token: string) {
+    return apiFetch<{ auth_url: string }>("/api/gmail/auth-url", { token });
+  },
+  getGmailInbox(token: string, maxResults = 20) {
+    return apiFetch<{ emails: Array<{ id: string; from: string; subject: string; date: string; snippet: string; labels: string[] }>; total: number }>(
+      `/api/gmail/inbox?max_results=${maxResults}`, { token }
+    );
+  },
+  deleteGmailMessage(token: string, messageId: string) {
+    return apiFetch<{ detail: string }>(`/api/gmail/messages/${messageId}`, {
+      method: "DELETE",
+      token,
+    });
+  },
+  autoCleanGmail(token: string) {
+    return apiFetch<{ deleted: number; kept: number; total: number }>("/api/gmail/auto-clean", {
+      method: "POST",
+      token,
+    });
+  },
+
+  // Medium
+  getMediumStatus(token: string) {
+    return apiFetch<{ enabled: boolean }>("/api/content/medium/status", { token });
+  },
+  publishToMedium(token: string, data: { title: string; content: string; format?: string; status?: string; tags?: string[] }) {
+    return apiFetch<Record<string, unknown>>("/api/content/medium/publish", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Progress Reports
+  getProgressReport(token: string, studentId: number) {
+    return apiFetch<ProgressReport>(`/api/teaching/students/${studentId}/progress-report`, { token });
+  },
+
   // Browser
   browserAction(token: string, data: BrowserActionRequest) {
     return apiFetch<BrowserActionResponse>("/api/browser/action", {
@@ -625,5 +861,166 @@ export const api = {
       token,
       body: JSON.stringify(data),
     });
+  },
+
+  // Generators
+  generateMetadata(token: string, data: { title: string; genre?: string; subgenre?: string; tropes?: string[] }) {
+    return apiFetch<MetadataResult>("/api/generators/metadata", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  generateNovelOutline(token: string, data: { title: string; genre?: string; trope?: string; protagonist?: string; love_interest?: string; setting?: string }) {
+    return apiFetch<OutlineResult>("/api/generators/novel-outline", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getTropes(token: string) {
+    return apiFetch<{ tropes: string[] }>("/api/generators/tropes", { token });
+  },
+  getConflicts(token: string) {
+    return apiFetch<{ internal: string[]; external: string[]; relational: string[] }>("/api/generators/conflicts", { token });
+  },
+  getPlotTwists(token: string) {
+    return apiFetch<Record<string, string[]>>("/api/generators/plot-twists", { token });
+  },
+  generateWorkbook(token: string, data: { subject: string; grade_level: string; title?: string }) {
+    return apiFetch<WorkbookResult>("/api/generators/workbook", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getProductionDashboard(token: string) {
+    return apiFetch<ProductionDashboard>("/api/generators/production-dashboard", { token });
+  },
+  generateCharacterBible(token: string, data: { name: string; role?: string; genre?: string; age?: string; occupation?: string; novel_title?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/generators/character-bible", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  plotScene(token: string, data: { chapter_number: number; chapter_title?: string; pov_character?: string; scene_goal?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/generators/scene-plotter", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  generateSeriesBible(token: string, data: { series_title: string; num_books?: number; genre?: string; setting?: string; theme?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/generators/series-bible", {
+      method: "POST",
+      token,
+      body: JSON.stringify(data),
+    });
+  },
+  getVillainMotivations(token: string) {
+    return apiFetch<Record<string, string[]>>("/api/generators/villain-motivations", { token });
+  },
+  getCoverChecklist(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/generators/cover-checklist", { token });
+  },
+  getDialogueGuide(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/generators/dialogue-guide", { token });
+  },
+  getPacingGuide(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/generators/pacing-guide", { token });
+  },
+
+  // Settings
+  getConnectedServices(token: string) {
+    return apiFetch<{ services: Array<{ name: string; connected: boolean; details: string }> }>("/api/settings/services", { token });
+  },
+  getProfile(token: string) {
+    return apiFetch<{ id: number; username: string; full_name: string; role: string }>("/api/settings/profile", { token });
+  },
+  getAppInfo(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/settings/app-info", { token });
+  },
+
+  // System management (boss only)
+  getSystemHealth(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/system/health-check", { token });
+  },
+  getAuditLog(token: string, limit = 100) {
+    return apiFetch<{ entries: Array<Record<string, unknown>> }>(`/api/system/audit-log?limit=${limit}`, { token });
+  },
+  getPerformance(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/system/performance", { token });
+  },
+  getErrors(token: string) {
+    return apiFetch<Record<string, unknown>>("/api/system/errors", { token });
+  },
+  triggerBackup(token: string) {
+    return apiFetch<{ status: string; backup_path?: string; detail?: string }>("/api/system/backup", { token, method: "POST" });
+  },
+  getBackups(token: string) {
+    return apiFetch<{ backups: Array<{ filename: string; size_mb: number; created: string }> }>("/api/system/backups", { token });
+  },
+  getScheduledTasks(token: string) {
+    return apiFetch<{ tasks: Array<Record<string, unknown>> }>("/api/system/scheduled-tasks", { token });
+  },
+  getTaskLog(token: string, limit = 50) {
+    return apiFetch<{ entries: Array<Record<string, unknown>> }>(`/api/system/task-log?limit=${limit}`, { token });
+  },
+  getUptime(token: string) {
+    return apiFetch<{ uptime_seconds: number; uptime_formatted: string; started_at: string }>("/api/system/uptime", { token });
+  },
+
+  // Notifications
+  getNotifications(token: string) {
+    return apiFetch<{ notifications: Array<Record<string, unknown>>; unread_count: number }>("/api/notifications", { token });
+  },
+  createReminder(token: string, data: { title: string; message: string; category?: string; priority?: string; due_date?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/notifications", { token, method: "POST", body: JSON.stringify(data) });
+  },
+  markNotificationRead(token: string, id: number) {
+    return apiFetch<Record<string, unknown>>(`/api/notifications/${id}/read`, { token, method: "PUT" });
+  },
+  markAllRead(token: string) {
+    return apiFetch<{ marked: number }>("/api/notifications/read-all", { token, method: "PUT" });
+  },
+  deleteNotification(token: string, id: number) {
+    return apiFetch<Record<string, unknown>>(`/api/notifications/${id}`, { token, method: "DELETE" });
+  },
+
+  // Exports
+  getExportFormats(token: string) {
+    return apiFetch<{ formats: Array<{ id: string; name: string; ext: string; desc: string }> }>("/api/exports/formats", { token });
+  },
+
+  // Production Calendar
+  getProductionCalendar(token: string, month?: number, year?: number) {
+    const params = month && year ? `?month=${month}&year=${year}` : "";
+    return apiFetch<{ events: Array<Record<string, unknown>> }>(`/api/calendar/events${params}`, { token });
+  },
+  createProductionEvent(token: string, data: { title: string; date: string; platform?: string; content_type?: string; status?: string; notes?: string }) {
+    return apiFetch<Record<string, unknown>>("/api/calendar/events", { token, method: "POST", body: JSON.stringify(data) });
+  },
+  deleteProductionEvent(token: string, id: number) {
+    return apiFetch<Record<string, unknown>>(`/api/calendar/events/${id}`, { token, method: "DELETE" });
+  },
+  getPublishingPlatforms(token: string) {
+    return apiFetch<{ platforms: Array<{ id: string; name: string; type: string }> }>("/api/calendar/platforms", { token });
+  },
+
+  // Files
+  listFiles(token: string, folder = "") {
+    return apiFetch<{ files: Array<{ name: string; type: string; size_mb: number; modified: string; path: string }>; folder: string }>(`/api/files?folder=${encodeURIComponent(folder)}`, { token });
+  },
+  getStorageInfo(token: string) {
+    return apiFetch<{ total_size_mb: number; file_count: number; folder_count: number }>("/api/files/storage-info", { token });
+  },
+  deleteFile(token: string, filepath: string) {
+    return apiFetch<Record<string, unknown>>(`/api/files/${encodeURIComponent(filepath)}`, { token, method: "DELETE" });
+  },
+
+  // Search
+  searchAll(token: string, query: string) {
+    return apiFetch<{ query: string; total: number; results: Array<{ type: string; id: number; title: string; subtitle: string; link: string }> }>(`/api/search?q=${encodeURIComponent(query)}`, { token });
   },
 };

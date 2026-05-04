@@ -7,7 +7,9 @@ import type { CalendarEvent, ContentDraft, YouTubeProject, PodcastEpisode } from
 import Header from "@/components/Header";
 import { useSidebar } from "../layout";
 
-type Tab = "calendar" | "youtube" | "podcast" | "drafts";
+import type { SocialPost } from "@/lib/api";
+
+type Tab = "calendar" | "youtube" | "podcast" | "drafts" | "social" | "medium";
 
 export default function ContentPage() {
   const { toggleSidebar } = useSidebar();
@@ -46,6 +48,21 @@ export default function ContentPage() {
   const [expandedYT, setExpandedYT] = useState<YouTubeProject | null>(null);
   const [expandedPod, setExpandedPod] = useState<PodcastEpisode | null>(null);
 
+  // Social media
+  const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
+  const [showSocialForm, setShowSocialForm] = useState(false);
+
+  // Medium
+  const [mediumStatus, setMediumStatus] = useState<{ enabled: boolean }>({ enabled: false });
+  const [mediumTitle, setMediumTitle] = useState("");
+  const [mediumContent, setMediumContent] = useState("");
+  const [mediumPublishing, setMediumPublishing] = useState(false);
+  const [mediumResult, setMediumResult] = useState<string | null>(null);
+
+  // TTS
+  const [ttsStatus, setTtsStatus] = useState<{ enabled: boolean; model: string; voice: string } | null>(null);
+  const [ttsLoading, setTtsLoading] = useState<number | null>(null);
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -53,6 +70,9 @@ export default function ContentPage() {
     api.getContentDrafts(token).then(setDrafts);
     api.getYouTubeProjects(token).then(setYtProjects);
     api.getPodcastEpisodes(token).then(setPodcasts);
+    api.getSocialPosts(token).then(setSocialPosts).catch(() => {});
+    api.getMediumStatus(token).then(setMediumStatus).catch(() => {});
+    api.getTtsStatus(token).then(setTtsStatus).catch(() => {});
   }, []);
 
   const inputCls = "px-3 py-2 rounded-lg border border-gray-300 text-sm text-gray-900";
@@ -122,6 +142,71 @@ export default function ContentPage() {
     setExpandedPod(updated);
   }
 
+  async function handleGenerateAudio(episodeId: number) {
+    const token = getToken();
+    if (!token) return;
+    setTtsLoading(episodeId);
+    try {
+      const response = await api.generatePodcastAudio(token, episodeId);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `podcast-${episodeId}.mp3`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setPodcasts(podcasts.map((p) => (p.id === episodeId ? { ...p, status: "audio_ready" } : p)));
+      } else {
+        const err = await response.json();
+        alert(err.detail || "Audio generation failed");
+      }
+    } catch {
+      alert("Audio generation failed");
+    }
+    setTtsLoading(null);
+  }
+
+  async function handleCreateSocialPost(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    const form = e.currentTarget;
+    const data = {
+      platform: (form.elements.namedItem("platform") as HTMLSelectElement).value,
+      content: (form.elements.namedItem("post_content") as HTMLTextAreaElement).value,
+      scheduled_date: (form.elements.namedItem("scheduled_date") as HTMLInputElement).value
+        ? new Date((form.elements.namedItem("scheduled_date") as HTMLInputElement).value).toISOString()
+        : undefined,
+    };
+    const post = await api.createSocialPost(token, data);
+    setSocialPosts([post, ...socialPosts]);
+    setShowSocialForm(false);
+    form.reset();
+  }
+
+  async function handlePublishMedium(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) return;
+    setMediumPublishing(true);
+    setMediumResult(null);
+    try {
+      await api.publishToMedium(token, {
+        title: mediumTitle,
+        content: mediumContent,
+        format: "markdown",
+        status: "draft",
+      });
+      setMediumResult("Published as draft on Medium!");
+      setMediumTitle("");
+      setMediumContent("");
+    } catch {
+      setMediumResult("Failed to publish. Check your Medium token.");
+    }
+    setMediumPublishing(false);
+  }
+
   const typeColors: Record<string, string> = {
     novel: "bg-purple-100 text-purple-700",
     workbook: "bg-blue-100 text-blue-700",
@@ -144,6 +229,8 @@ export default function ContentPage() {
     { key: "youtube", label: "YouTube" },
     { key: "podcast", label: "Podcast" },
     { key: "drafts", label: "Drafts" },
+    { key: "social", label: "Social Media" },
+    { key: "medium", label: "Medium" },
   ];
 
   return (
@@ -393,6 +480,15 @@ export default function ContentPage() {
                               {expandedPod?.id === ep.id ? "Hide" : "View Script"}
                             </button>
                           )}
+                          {ep.script && ttsStatus?.enabled && (
+                            <button
+                              onClick={() => handleGenerateAudio(ep.id)}
+                              disabled={ttsLoading === ep.id}
+                              className="text-xs text-green-600 hover:underline disabled:opacity-50"
+                            >
+                              {ttsLoading === ep.id ? "Generating..." : "Generate Audio"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -432,6 +528,120 @@ export default function ContentPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Social Media Tab */}
+        {tab === "social" && (
+          <div className="space-y-6">
+            <div className="bg-card-bg rounded-xl border border-card-border p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Social Media Scheduler</h3>
+                  <p className="text-sm text-muted mt-1">Schedule and manage posts across platforms</p>
+                </div>
+                <button onClick={() => setShowSocialForm(!showSocialForm)} className={btnPrimary}>
+                  {showSocialForm ? "Cancel" : "+ New Post"}
+                </button>
+              </div>
+
+              {showSocialForm && (
+                <form onSubmit={handleCreateSocialPost} className="mb-6 p-4 bg-blue-50 rounded-lg space-y-4 border border-blue-200">
+                  <select name="platform" className={inputCls} required>
+                    <option value="">Select Platform</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="twitter">Twitter / X</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube Community</option>
+                  </select>
+                  <textarea name="post_content" placeholder="Write your post content..." rows={4} className={`${inputCls} w-full`} required />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input name="scheduled_date" type="datetime-local" className={inputCls} />
+                  </div>
+                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+                    Schedule Post
+                  </button>
+                </form>
+              )}
+
+              {socialPosts.length === 0 ? (
+                <p className="text-muted text-sm">No scheduled posts yet. Create your first post!</p>
+              ) : (
+                <div className="space-y-3">
+                  {socialPosts.map((post) => (
+                    <div key={post.id} className="py-3 border-b border-gray-100 last:border-0">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-0.5 rounded capitalize">{post.platform}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              post.status === "posted" ? "bg-green-100 text-green-700" :
+                              post.status === "scheduled" ? "bg-yellow-100 text-yellow-700" :
+                              post.status === "failed" ? "bg-red-100 text-red-700" :
+                              "bg-gray-100 text-gray-700"
+                            }`}>{post.status}</span>
+                          </div>
+                          <p className="text-sm text-foreground mt-1 line-clamp-2">{post.content}</p>
+                          {post.scheduled_date && (
+                            <p className="text-xs text-muted mt-1">Scheduled: {new Date(post.scheduled_date).toLocaleString()}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Medium Tab */}
+        {tab === "medium" && (
+          <div className="space-y-6">
+            <div className="bg-card-bg rounded-xl border border-card-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-2">Publish to Medium</h3>
+              <p className="text-sm text-muted mb-4">
+                {mediumStatus.enabled
+                  ? "Medium is connected. Write and publish articles directly."
+                  : "Medium token not configured. Set JHIONNEA_MEDIUM_TOKEN to enable publishing."}
+              </p>
+
+              {mediumResult && (
+                <div className={`p-3 rounded-lg mb-4 text-sm ${
+                  mediumResult.includes("Published") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                }`}>
+                  {mediumResult}
+                </div>
+              )}
+
+              <form onSubmit={handlePublishMedium} className="space-y-4">
+                <input
+                  type="text"
+                  value={mediumTitle}
+                  onChange={(e) => setMediumTitle(e.target.value)}
+                  placeholder="Article title"
+                  className={`${inputCls} w-full`}
+                  required
+                />
+                <textarea
+                  value={mediumContent}
+                  onChange={(e) => setMediumContent(e.target.value)}
+                  placeholder="Write your article in Markdown..."
+                  rows={12}
+                  className={`${inputCls} w-full font-mono`}
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={mediumPublishing || !mediumStatus.enabled}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
+                >
+                  {mediumPublishing ? "Publishing..." : "Publish as Draft on Medium"}
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </main>

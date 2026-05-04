@@ -16,7 +16,30 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b"
 
-    model_config = {"env_prefix": "JHIONNEA_"}
+    # OpenAI
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    openai_tts_model: str = "tts-1"
+    openai_tts_voice: str = "nova"
+
+    # Gmail OAuth
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    gmail_redirect_uri: str = ""
+
+    # ElevenLabs
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Rachel
+
+    # Medium
+    medium_token: str = ""
+
+    model_config = {
+        "env_prefix": "JHIONNEA_",
+        "env_file": ".env.deploy",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 
 settings = Settings()
