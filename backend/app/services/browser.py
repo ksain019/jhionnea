@@ -4,8 +4,6 @@ import logging
 from dataclasses import dataclass, field
 from urllib.parse import quote_plus
 
-from playwright.async_api import Browser, BrowserContext, Page, async_playwright
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,14 +21,25 @@ class BrowserResult:
 @dataclass
 class BrowserSession:
     _playwright: object = field(default=None, repr=False)
-    _browser: Browser | None = field(default=None, repr=False)
-    _context: BrowserContext | None = field(default=None, repr=False)
-    _page: Page | None = field(default=None, repr=False)
+    _browser: object = field(default=None, repr=False)
+    _context: object = field(default=None, repr=False)
+    _page: object = field(default=None, repr=False)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
-    async def _ensure_browser(self) -> Page:
-        if self._page and not self._page.is_closed():
-            return self._page
+    async def _ensure_browser(self):
+        if self._page is not None:
+            try:
+                if not self._page.is_closed():
+                    return self._page
+            except Exception:
+                pass
+
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            raise RuntimeError(
+                "Playwright is not installed. Browser features are unavailable."
+            )
 
         pw = await async_playwright().start()
         self._playwright = pw
