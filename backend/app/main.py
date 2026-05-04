@@ -1,8 +1,13 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 # Import all models so they are registered with Base.metadata
 import app.models.analytics  # noqa: F401
@@ -65,12 +70,26 @@ async def seed_users():
             await session.commit()
 
 
+async def self_ping():
+    """Keep the Fly.io machine alive by pinging ourselves every 4 minutes."""
+    await asyncio.sleep(30)
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                await client.get("http://localhost:8000/api/health", timeout=10)
+            except Exception:
+                pass
+            await asyncio.sleep(240)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await seed_users()
+    ping_task = asyncio.create_task(self_ping())
     yield
+    ping_task.cancel()
 
 
 app = FastAPI(
